@@ -1525,6 +1525,11 @@ document.getElementById("summaryHome").addEventListener("click", () => {
   initSplash();
 });
 
+document.getElementById("summaryHistory")?.addEventListener("click", () => {
+  renderHistory();
+  showView("historyView");
+});
+
 // ==================== CUSTOM PROGRAM BUILDER ====================
 let editingProgram = null;
 

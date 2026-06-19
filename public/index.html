@@ -18,67 +18,59 @@
   <div class="view" id="splashView">
     <div class="splash-card">
       <h1>FormCheck</h1>
-      <p class="tagline">AI fitness form coach — right in your browser.</p>
-      <p class="sub">Real-time pose tracking · Rep counting · Form feedback · 100% local · No install</p>
+      <p class="tagline">AI fitness form coach</p>
+      <p class="sub">Real-time pose tracking. Rep counting. Form feedback.<br>100% on your device. Nothing uploaded.</p>
 
       <!-- Onboarding: step 1 — name + level -->
       <div class="onboarding" id="onboardingStep1">
         <div class="form-group">
-          <label>What's your name?</label>
-          <input type="text" id="userName" placeholder="Enter your name" maxlength="30" />
+          <label>Name</label>
+          <input type="text" id="userName" placeholder="Your name" maxlength="30" />
         </div>
         <div class="form-group">
-          <label>Fitness level</label>
+          <label>Experience</label>
           <div class="level-picker">
             <button class="level-btn" data-level="beginner">Beginner</button>
             <button class="level-btn active" data-level="intermediate">Intermediate</button>
-            <button class="level-btn data-level="advanced">Advanced</button>
+            <button class="level-btn" data-level="advanced">Advanced</button>
           </div>
         </div>
-        <button class="btn big" id="onboardingNext">Next →</button>
+        <button class="btn big" id="onboardingNext">Continue</button>
       </div>
 
-      <!-- Onboarding: step 2 — how it works -->
+      <!-- Onboarding: step 2 — camera setup -->
       <div class="onboarding hidden" id="onboardingStep2">
-        <h2 style="margin-bottom:16px">How it works</h2>
+        <h2 style="margin-bottom:8px">Camera setup</h2>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:24px;line-height:1.6">Your browser will ask for camera access. Your video stays on this device — nothing is recorded or uploaded.</p>
         <div class="how-it-works">
           <div class="hiw-step">
-            <div class="hiw-icon">📷</div>
+            <div class="hiw-icon">1</div>
             <div class="hiw-text">
-              <div class="hiw-title">Stand in front of your camera</div>
-              <div class="hiw-desc">Full body visible, 6-8 feet away</div>
+              <div class="hiw-title">Stand 6–8 feet from your camera</div>
+              <div class="hiw-desc">Full body visible, good lighting</div>
             </div>
           </div>
           <div class="hiw-step">
-            <div class="hiw-icon">🏋️</div>
+            <div class="hiw-icon">2</div>
             <div class="hiw-text">
-              <div class="hiw-title">Pick an exercise or program</div>
-              <div class="hiw-desc">Start with a beginner program or single exercise</div>
+              <div class="hiw-title">Allow camera access</div>
+              <div class="hiw-desc">Your video is processed locally, never leaves your device</div>
             </div>
           </div>
           <div class="hiw-step">
-            <div class="hiw-icon">🤖</div>
+            <div class="hiw-icon">3</div>
             <div class="hiw-text">
-              <div class="hiw-title">AI tracks your form</div>
-              <div class="hiw-desc">Real-time feedback, rep counting, and form correction</div>
-            </div>
-          </div>
-          <div class="hiw-step">
-            <div class="hiw-icon">📊</div>
-            <div class="hiw-text">
-              <div class="hiw-title">Track your progress</div>
-              <div class="hiw-desc">History, streaks, and progressive overload suggestions</div>
+              <div class="hiw-title">Start exercising</div>
+              <div class="hiw-desc">AI tracks your form, counts reps, and gives feedback</div>
             </div>
           </div>
         </div>
-        <div style="margin-top:20px">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Recommended for you:</div>
-          <div class="program-option active" id="recProgram" style="cursor:default">
-            <div class="program-option-name" id="recProgramName">Full Body</div>
-            <div class="program-option-desc" id="recProgramDesc">5 exercises · ~15 minutes</div>
-          </div>
+        <div style="margin-top:24px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);text-align:left;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-3);margin-bottom:6px">Recommended for you</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)" id="recProgramName">Full Body</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px" id="recProgramDesc">5 exercises · ~15 minutes</div>
         </div>
-        <button class="btn big" id="onboardingStart" style="margin-top:16px">Start Your First Workout →</button>
+        <button class="btn big" id="onboardingStart" style="margin-top:20px">Start Workout</button>
       </div>
 
       <!-- Returning user: quick start + programs -->
@@ -182,8 +174,8 @@
         <div class="feedback-detail" id="feedbackDetail"></div>
       </div>
 
-      <!-- Debug panel -->
-      <div class="debug-panel" id="debugPanel">
+      <!-- Debug panel (hidden by default) -->
+      <div class="debug-panel hidden" id="debugPanel">
         <div class="debug-title">Debug</div>
         <div class="debug-state" id="debugState">State: —</div>
         <div class="debug-angles" id="debugAngles">—</div>
@@ -191,9 +183,8 @@
 
       <!-- Bottom controls -->
       <div class="bottom-controls">
-        <button class="ctrl-btn" id="btnHistory" title="History">📊</button>
-        <button class="ctrl-btn" id="btnSettings" title="Settings">⚙️</button>
-        <button class="ctrl-btn danger" id="btnEndWorkout" title="End Workout">⏹</button>
+        <button class="ctrl-btn ctrl-label hidden" id="btnSkipExercise">Skip</button>
+        <button class="ctrl-btn ctrl-label" id="btnEndWorkout">End</button>
       </div>
 
       <!-- Confirm end workout -->
@@ -408,10 +399,14 @@
   <!-- ==================== WORKOUT SUMMARY VIEW ==================== -->
   <div class="view hidden" id="summaryView">
     <div class="summary-card">
-      <h2>Workout Complete! 🎉</h2>
+      <div style="width:48px;height:48px;border:2px solid var(--text);border-radius:50%;margin:0 auto 20px;display:grid;place-items:center;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round"><polyline points="4 10 8 14 16 6"/></svg>
+      </div>
+      <h2>Workout Complete</h2>
       <div class="summary-stats" id="summaryStats"></div>
-      <div class="summary-actions">
+      <div class="summary-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <button class="btn big" id="summaryHome">Done</button>
+        <button class="btn big ghost" id="summaryHistory">View Progress</button>
       </div>
     </div>
   </div>
