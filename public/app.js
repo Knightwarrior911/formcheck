@@ -695,9 +695,19 @@ async function initCamera() {
   if (cameraInitializing) return cameraInitializing;
 
   cameraInitializing = (async () => {
+    let modelLoaded = false;
     try {
-      // Load MediaPipe model
-      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+      // Step 1: Load MediaPipe model
+      updateLoadingDetail("Downloading pose model (~5MB)…");
+      let vision;
+      try {
+        vision = await FilesetResolver.forVisionTasks(WASM_URL);
+      } catch (err) {
+        console.error("[FormCheck] WASM load failed:", err);
+        throw new Error("MODEL_LOAD_FAILED");
+      }
+
+      updateLoadingDetail("Initializing pose detector…");
       const make = (delegate, modelUrl) =>
         PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: modelUrl, delegate },
@@ -707,25 +717,54 @@ async function initCamera() {
           minTrackingConfidence: 0.4,
         });
 
-      try {
-        poseLandmarker = await make("GPU", POSE_MODEL_URL);
-      } catch {
+      // Try models in order: lite CPU (fastest), lite GPU, full CPU, full GPU
+      const modelAttempts = [
+        { delegate: "CPU", url: POSE_MODEL_LITE_URL },
+        { delegate: "GPU", url: POSE_MODEL_LITE_URL },
+        { delegate: "CPU", url: POSE_MODEL_URL },
+        { delegate: "GPU", url: POSE_MODEL_URL },
+      ];
+      let modelError = null;
+      for (const attempt of modelAttempts) {
         try {
-          poseLandmarker = await make("CPU", POSE_MODEL_URL);
-        } catch {
-          try {
-            poseLandmarker = await make("GPU", POSE_MODEL_LITE_URL);
-          } catch {
-            poseLandmarker = await make("CPU", POSE_MODEL_LITE_URL);
-          }
+          updateLoadingDetail("Loading " + (attempt.url.includes("lite") ? "lite" : "full") + " model (" + attempt.delegate + ")…");
+          poseLandmarker = await Promise.race([
+            make(attempt.delegate, attempt.url),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
+          ]);
+          modelLoaded = true;
+          console.log("[FormCheck] Model loaded:", attempt.url, attempt.delegate);
+          break;
+        } catch (err) {
+          modelError = err;
+          console.warn("[FormCheck] Model attempt failed:", attempt.url, err.message);
         }
       }
+      if (!modelLoaded) {
+        throw new Error("MODEL_LOAD_FAILED");
+      }
+      modelLoaded = true;
 
-      // Start camera
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      // Step 2: Start camera
+      updateLoadingDetail("Requesting camera access…");
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch (err) {
+        console.error("[FormCheck] camera error:", err);
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          throw new Error("CAMERA_PERMISSION_DENIED");
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          throw new Error("CAMERA_NOT_FOUND");
+        } else if (err.name === "NotReadableError" || err.name === "OverconstrainedError") {
+          throw new Error("CAMERA_IN_USE");
+        }
+        throw new Error("CAMERA_ERROR");
+      }
+
       video.srcObject = stream;
       await video.play();
 
@@ -744,6 +783,14 @@ async function initCamera() {
       return true;
     } catch (err) {
       console.error("[FormCheck] initCamera error:", err);
+      // Clean up partial state
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+      }
+      // Show specific error
+      const errorMsg = getCameraErrorMessage(err.message);
+      showLoadingError(errorMsg.title, errorMsg.detail);
       return false;
     } finally {
       cameraInitializing = false;
@@ -769,16 +816,55 @@ function showLoadingError(title, detail) {
   document.getElementById("loadingRetry").classList.remove("hidden");
 }
 
+function updateLoadingDetail(text) {
+  const el = document.getElementById("loadingDetail");
+  if (el) el.textContent = text;
+}
+
+function getCameraErrorMessage(code) {
+  switch (code) {
+    case "CAMERA_PERMISSION_DENIED":
+      return {
+        title: "Camera access denied",
+        detail: "Click the camera icon in your browser's address bar and allow camera access, then click Retry.",
+      };
+    case "CAMERA_NOT_FOUND":
+      return {
+        title: "No camera found",
+        detail: "Make sure your webcam is connected and not being used by another app.",
+      };
+    case "CAMERA_IN_USE":
+      return {
+        title: "Camera in use",
+        detail: "Another app is using your camera. Close other camera apps and click Retry.",
+      };
+    case "MODEL_LOAD_FAILED":
+      return {
+        title: "Model download failed",
+        detail: "Could not download the pose model. Check your internet connection and click Retry.",
+      };
+    default:
+      return {
+        title: "Camera failed",
+        detail: "Could not access camera or load model. Check permissions and internet, then click Retry.",
+      };
+  }
+}
+
 async function startCamera() {
+  // Reset any stuck state from previous attempts
+  if (cameraInitializing) {
+    cameraInitializing = false;
+  }
+
   showLoading("Loading pose model…", "Downloading MediaPipe WASM + model (~5MB)", 10);
 
   try {
     tracker.startSession(engine.exerciseId);
-    showLoading("Loading pose model…", "Initializing…", 50);
 
     const ok = await initCamera();
     if (!ok) {
-      showLoadingError("Camera failed", "Could not access camera or load model. Check permissions and internet.");
+      // Error already shown by initCamera's catch block
       document.getElementById("loadingRetry").onclick = () => startCamera();
       return;
     }
