@@ -210,6 +210,93 @@ export function getTutorial(exerciseId) {
   return EXERCISE_TUTORIALS[exerciseId] || null;
 }
 
+  jumping_jack: {
+    name: "Jumping Jack",
+    setup: [
+      "Stand with feet together, arms at your sides",
+      "Keep core engaged throughout",
+      "Stay on the balls of your feet",
+    ],
+    tips: [
+      "Jump feet apart while raising arms overhead",
+      "Land softly on the balls of your feet",
+      "Keep arms straight during the movement",
+      "Maintain a steady rhythm",
+    ],
+    mistakes: [
+      "Not raising arms fully overhead",
+      "Landing with stiff legs — stay soft",
+      "Holding breath — breathe steadily",
+    ],
+    muscles: ["Shoulders", "Calves", "Core", "Hip Flexors"],
+  },
+
+  high_knees: {
+    name: "High Knees",
+    setup: [
+      "Stand tall with feet hip-width apart",
+      "Arms at elbows 90°, hands at waist height",
+      "Look ahead, not down",
+    ],
+    tips: [
+      "Drive knees up to hip height",
+      "Pump arms in opposition to legs",
+      "Stay on the balls of your feet",
+      "Keep core tight and chest up",
+    ],
+    mistakes: [
+      "Knees not reaching hip height",
+      "Leaning back — stay upright",
+      "Flat-footed landing — stay on toes",
+    ],
+    muscles: ["Hip Flexors", "Quadriceps", "Calves", "Core"],
+  },
+
+  wall_sit: {
+    name: "Wall Sit",
+    setup: [
+      "Stand with back against a wall",
+      "Slide down until thighs are parallel to floor",
+      "Knees at 90° angle, directly over ankles",
+      "Feet flat, hip-width apart",
+    ],
+    tips: [
+      "Keep back flat against the wall",
+      "Breathe steadily — don't hold your breath",
+      "Start with 20-30 seconds and build up",
+      "Keep weight in your heels",
+    ],
+    mistakes: [
+      "Knees going past toes — slide up",
+      "Thighs not parallel — slide down",
+      "Leaning forward — back stays on wall",
+    ],
+    muscles: ["Quadriceps", "Glutes", "Calves", "Core"],
+  },
+
+  superman: {
+    name: "Superman",
+    setup: [
+      "Lie face down on the floor",
+      "Arms extended forward, legs straight",
+      "Forehead resting on the floor to start",
+    ],
+    tips: [
+      "Lift chest and legs simultaneously",
+      "Squeeze glutes and lower back",
+      "Keep neck neutral — look at the floor",
+      "Hold at the top, then lower with control",
+    ],
+    mistakes: [
+      "Lifting too high — small controlled lift",
+      "Holding breath — breathe steadily",
+      "Jerking up — smooth controlled movement",
+    ],
+    muscles: ["Lower Back", "Glutes", "Hamstrings", "Shoulders"],
+  },
+
+};
+
 export function getAllTutorials() {
   return Object.entries(EXERCISE_TUTORIALS).map(([id, t]) => ({
     id,

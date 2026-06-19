@@ -152,6 +152,7 @@ function buildExercisePicker() {
     { id: "push", name: "Push", icon: "💪" },
     { id: "pull", name: "Pull", icon: "🏋️" },
     { id: "core", name: "Core", icon: "🎯" },
+    { id: "cardio", name: "Cardio", icon: "❤️" },
   ];
   exercisePicker.innerHTML = "";
 

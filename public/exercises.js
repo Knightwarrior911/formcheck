@@ -18,6 +18,7 @@ export const EXERCISE_CATEGORIES = {
   push: { name: "Push", icon: "💪" },
   pull: { name: "Pull", icon: "🏋️" },
   core: { name: "Core", icon: "🎯" },
+  cardio: { name: "Cardio", icon: "❤️" },
 };
 
 export const EXERCISES = [
@@ -322,9 +323,124 @@ export const EXERCISES = [
       {
         id: "knee_bend",
         check: (a) => {
-          // Knees should stay bent (~90°) throughout
           if (a.knee > 120)
             return { ok: false, msg: "Keep knees bent!", severity: "warn" };
+          return null;
+        },
+      },
+    ],
+  },
+
+  {
+    id: "jumping_jack",
+    name: "Jumping Jack",
+    type: "rep",
+    category: "cardio",
+    joints: {
+      shoulder: [23, 11, 13],   // hip-shoulder-elbow — arm raise
+      hip:      [11, 23, 25],   // shoulder-hip-knee — leg spread
+    },
+    states: [
+      { name: "closed",  detect: (a) => a.shoulder < 40 && a.hip > 150 },
+      { name: "jumping", detect: (a) => a.shoulder >= 40 || a.hip <= 150 },
+    ],
+    repTransition: { from: "jumping", to: "closed" },
+    rules: [
+      {
+        id: "full_jack",
+        check: (a, state) => {
+          if (state === "jumping" && a.shoulder < 60)
+            return { ok: false, msg: "Arms up higher!", severity: "warn" };
+          if (state === "jumping" && a.shoulder >= 60)
+            return { ok: true, msg: "Good jack!", severity: "good" };
+          return null;
+        },
+      },
+    ],
+  },
+
+  {
+    id: "high_knees",
+    name: "High Knees",
+    type: "rep",
+    category: "cardio",
+    joints: {
+      hip:  [11, 23, 25],   // shoulder-hip-knee
+      knee: [23, 25, 27],   // hip-knee-ankle
+    },
+    // Count each knee raise as a rep (alternate legs)
+    states: [
+      { name: "standing", detect: (a) => a.hip > 140 },
+      { name: "knee_up",  detect: (a) => a.hip <= 140 },
+    ],
+    repTransition: { from: "knee_up", to: "standing" },
+    rules: [
+      {
+        id: "knee_height",
+        check: (a, state) => {
+          if (state === "knee_up" && a.hip > 120)
+            return { ok: false, msg: "Bring knee higher!", severity: "warn" };
+          if (state === "knee_up" && a.hip <= 120)
+            return { ok: true, msg: "Good height!", severity: "good" };
+          return null;
+        },
+      },
+    ],
+  },
+
+  {
+    id: "wall_sit",
+    name: "Wall Sit",
+    type: "hold",
+    category: "legs",
+    holdTargetSeconds: 45,
+    joints: {
+      knee: [23, 25, 27],   // hip-knee-ankle — should be ~90°
+      hip:  [11, 23, 25],   // shoulder-hip-knee
+    },
+    states: [
+      { name: "good",    detect: (a) => a.knee <= 110 && a.knee >= 70 },
+      { name: "too_high", detect: (a) => a.knee > 110 },
+      { name: "too_low",  detect: (a) => a.knee < 70 },
+    ],
+    repTransition: null,
+    rules: [
+      {
+        id: "angle",
+        check: (a) => {
+          if (a.knee > 110)
+            return { ok: false, msg: "Slide down — aim for 90°!", severity: "warn" };
+          if (a.knee < 70)
+            return { ok: false, msg: "Too low — slide up a bit!", severity: "warn" };
+          return { ok: true, msg: "Perfect 90°!", severity: "good" };
+        },
+      },
+    ],
+  },
+
+  {
+    id: "superman",
+    name: "Superman",
+    type: "hold",
+    category: "core",
+    holdTargetSeconds: 30,
+    joints: {
+      hip: [11, 23, 25],   // shoulder-hip-knee — should be extended (straight line)
+    },
+    states: [
+      { name: "lying",     detect: (a) => a.hip > 150 },
+      { name: "lifting",   detect: (a) => a.hip <= 150 && a.hip > 120 },
+      { name: "hold_good", detect: (a) => a.hip <= 120 },
+    ],
+    repTransition: null,
+    rules: [
+      {
+        id: "lift_height",
+        check: (a) => {
+          if (a.hip > 150)
+            return { ok: false, msg: "Lift chest and legs off floor!", severity: "warn" };
+          if (a.hip <= 120)
+            return { ok: true, msg: "Good hold!", severity: "good" };
           return null;
         },
       },
