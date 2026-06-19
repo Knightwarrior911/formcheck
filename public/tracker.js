@@ -81,10 +81,24 @@ export class WorkoutTracker {
       reps: 0,
       formScores: [],
       duration: 0,
-      exercises: [{ exerciseId, reps: 0, formScores: [] }],
+      weight: null,
+      weightUnit: "kg",
+      exercises: [{ exerciseId, reps: 0, formScores: [], weight: null, weightUnit: "kg" }],
       currentExerciseIndex: 0,
     };
     return this._currentSession;
+  }
+
+  setWeight(val, unit) {
+    if (!this._currentSession) return;
+    this._currentSession.weight = val;
+    this._currentSession.weightUnit = unit || "kg";
+    // Also set on current exercise
+    const idx = this._currentSession.currentExerciseIndex;
+    if (this._currentSession.exercises[idx]) {
+      this._currentSession.exercises[idx].weight = val;
+      this._currentSession.exercises[idx].weightUnit = unit || "kg";
+    }
   }
 
   switchExercise(exerciseId) {

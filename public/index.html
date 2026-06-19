@@ -140,6 +140,14 @@
           <span class="rep-count" id="repCount">0</span>
           <span class="rep-label" id="repLabel">reps</span>
         </div>
+        <!-- Weight input -->
+        <div class="weight-display hidden" id="weightDisplay">
+          <input type="number" id="weightInput" placeholder="Weight" min="0" max="999" step="0.5" />
+          <select id="weightUnit">
+            <option value="kg">kg</option>
+            <option value="lbs">lbs</option>
+          </select>
+        </div>
         <!-- Hold timer overlay (hidden by default) -->
         <div class="hold-timer hidden" id="holdTimer">
           <div class="hold-time" id="holdTime">0:00</div>
@@ -230,6 +238,21 @@
         <div class="stat-value" id="statForm">0%</div>
         <div class="stat-label">Avg Form</div>
       </div>
+    </div>
+
+    <!-- Progress chart -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <h3>Progress</h3>
+        <div class="chart-controls" id="chartControls">
+          <button class="chart-btn active" data-range="7">7d</button>
+          <button class="chart-btn" data-range="30">30d</button>
+          <button class="chart-btn" data-range="90">90d</button>
+          <button class="chart-btn" data-range="all">All</button>
+        </div>
+      </div>
+      <canvas id="progressChart" width="360" height="160"></canvas>
+      <div class="chart-legend-row" id="chartLegend"></div>
     </div>
 
     <!-- Session list -->

@@ -54,6 +54,9 @@ const octx = overlay.getContext("2d");
 const exercisePicker = document.getElementById("exercisePicker");
 const repCount = document.getElementById("repCount");
 const repDisplay = document.getElementById("repDisplay");
+const weightDisplay = document.getElementById("weightDisplay");
+const weightInput = document.getElementById("weightInput");
+const weightUnit = document.getElementById("weightUnit");
 const statusBadge = document.getElementById("statusBadge");
 const feedbackText = document.getElementById("feedbackText");
 const feedbackDetail = document.getElementById("feedbackDetail");
@@ -194,12 +197,14 @@ function selectExercise(exId) {
   if (isHoldExercise) {
     repDisplay.classList.add("hidden");
     holdTimer.classList.remove("hidden");
+    weightDisplay.classList.add("hidden");
     holdTarget.textContent = (exData.holdTargetSeconds || 60) + "s";
     holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
     repLabel.textContent = "hold";
   } else {
     repDisplay.classList.remove("hidden");
     holdTimer.classList.add("hidden");
+    weightDisplay.classList.remove("hidden");
     repLabel.textContent = "reps";
     holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
   }
@@ -431,18 +436,16 @@ function startProgramExercise() {
   if (isHoldExercise) {
     repDisplay.classList.add("hidden");
     holdTimer.classList.remove("hidden");
+    weightDisplay.classList.add("hidden");
     holdTarget.textContent = (exerciseData.holdTargetSeconds || ex.targetReps || 60) + "s";
-    holdStartTime = 0;
-    holdGoodFrames = 0;
-    lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
     repLabel.textContent = "hold";
   } else {
     repDisplay.classList.remove("hidden");
     holdTimer.classList.add("hidden");
+    weightDisplay.classList.remove("hidden");
     repLabel.textContent = "reps";
-    holdStartTime = 0;
-    holdGoodFrames = 0;
-    lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
   }
 }
 
@@ -917,6 +920,9 @@ function renderHistory() {
   document.getElementById("statStreak").textContent = tracker.getStreak();
   document.getElementById("statForm").textContent = tracker.getAverageFormScore() + "%";
 
+  // Render progress chart
+  renderProgressChart(sessions);
+
   if (sessions.length === 0) {
     sessionList.innerHTML = '<div class="empty-state">No workouts yet. Start your first session!</div>';
     return;
@@ -930,7 +936,7 @@ function renderHistory() {
         <div class="session-item">
           <div class="session-info">
             <div class="session-exercise">${ex ? ex.name : s.exerciseId}</div>
-            <div class="session-meta">${s.date} · ${s.durationMin}min · ~${tracker.estimateCalories(s.exerciseId, s.reps)} cal</div>
+            <div class="session-meta">${s.date} · ${s.durationMin}min · ~${tracker.estimateCalories(s.exerciseId, s.reps)} cal${s.weight ? " · " + s.weight + " " + (s.weightUnit || "kg") : ""}</div>
           </div>
           <div class="session-stats">
             <div class="session-reps">${s.reps} reps</div>
@@ -941,6 +947,122 @@ function renderHistory() {
     })
     .join("");
 }
+
+// ==================== PROGRESS CHART ====================
+let chartRange = 7;
+
+function renderProgressChart(sessions) {
+  const canvas = document.getElementById("progressChart");
+  if (!canvas || sessions.length === 0) return;
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = rect.height;
+
+  // Filter sessions by range
+  const now = Date.now();
+  const rangeMs = chartRange === "all" ? Infinity : chartRange * 86400000;
+  const filtered = sessions.filter((s) => now - s.startTime <= rangeMs);
+
+  // Aggregate by day
+  const dayMap = {};
+  filtered.forEach((s) => {
+    const d = new Date(s.startTime);
+    const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (!dayMap[key]) dayMap[key] = { reps: 0, form: 0, count: 0 };
+    dayMap[key].reps += s.reps || 0;
+    dayMap[key].form += s.formScore || 0;
+    dayMap[key].count++;
+  });
+
+  const days = Object.keys(dayMap).sort();
+  if (days.length === 0) {
+    ctx.fillStyle = "var(--muted)";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No data for this period", w / 2, h / 2);
+    return;
+  }
+
+  const maxReps = Math.max(...days.map((d) => dayMap[d].reps), 10);
+  const padding = { top: 20, right: 15, bottom: 25, left: 35 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  // Draw grid
+  ctx.strokeStyle = "var(--stroke)";
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.top + (chartH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(w - padding.right, y);
+    ctx.stroke();
+    // Y-axis labels
+    const val = Math.round(maxReps - (maxReps / 4) * i);
+    ctx.fillStyle = "var(--muted)";
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(String(val), padding.left - 4, y + 3);
+  }
+
+  // Draw bars
+  const barWidth = Math.max(4, Math.min(20, (chartW / days.length) - 4));
+  const gap = (chartW - barWidth * days.length) / (days.length + 1);
+
+  days.forEach((day, i) => {
+    const data = dayMap[day];
+    const barH = (data.reps / maxReps) * chartH;
+    const x = padding.left + gap + i * (barWidth + gap);
+    const y = padding.top + chartH - barH;
+
+    // Bar color based on form score
+    const avgForm = data.count > 0 ? data.form / data.count : 0;
+    let barColor = "var(--good)";
+    if (avgForm < 40) barColor = "var(--bad)";
+    else if (avgForm < 70) barColor = "var(--warn)";
+
+    ctx.fillStyle = barColor;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barWidth, barH, 2);
+    ctx.fill();
+
+    // X-axis label (every Nth day)
+    const labelStep = Math.max(1, Math.floor(days.length / 6));
+    if (i % labelStep === 0 || i === days.length - 1) {
+      const date = new Date(day);
+      const label = (date.getMonth() + 1) + "/" + date.getDate();
+      ctx.fillStyle = "var(--muted)";
+      ctx.font = "9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(label, x + barWidth / 2, h - 5);
+    }
+  });
+
+  // Legend
+  const legendEl = document.getElementById("chartLegend");
+  if (legendEl) {
+    legendEl.innerHTML = `
+      <div class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--good)"></span> Good form</div>
+      <div class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--warn)"></span> Okay</div>
+      <div class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--bad)"></span> Needs work</div>
+    `;
+  }
+}
+
+// Chart range buttons
+document.getElementById("chartControls")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chart-btn");
+  if (!btn) return;
+  document.querySelectorAll(".chart-btn").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+  chartRange = btn.dataset.range === "all" ? "all" : parseInt(btn.dataset.range);
+  renderHistory();
+});
 
 document.getElementById("historyBack").addEventListener("click", () => {
   resumeCamera();
@@ -1000,7 +1122,18 @@ settingAngles.addEventListener("change", saveSettings);
 settingRestTimer.addEventListener("change", saveSettings);
 if (settingDarkMode) settingDarkMode.addEventListener("change", saveSettings);
 
-// Init theme from saved settings
+  // Weight input
+  if (weightInput) weightInput.addEventListener('input', () => {
+    const val = parseFloat(weightInput.value) || null;
+    const unit = weightUnit ? weightUnit.value : 'kg';
+    tracker.setWeight(val, unit);
+  });
+  if (weightUnit) weightUnit.addEventListener('change', () => {
+    const val = parseFloat(weightInput.value) || null;
+    tracker.setWeight(val, weightUnit.value);
+  });
+
+  // Init theme from saved settings
 const savedSettings = tracker.getSettings();
 if (savedSettings.darkMode === false) {
   applyTheme(false);

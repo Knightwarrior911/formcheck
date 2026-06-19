@@ -262,6 +262,43 @@ html, body {
 .exercise-btn:hover { border-color: var(--accent); color: var(--text); }
 .exercise-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+/* ---- Weight input ---- */
+.weight-display {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.weight-display input {
+  width: 60px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.weight-display input:focus { border-color: var(--accent); }
+.weight-display input::-webkit-outer-spin-button,
+.weight-display input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.weight-display select {
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
 /* ---- Rep counter ---- */
 .rep-display {
   background: var(--panel);
@@ -464,6 +501,75 @@ html, body {
   letter-spacing: 0.06em;
   color: var(--muted);
   margin-top: 4px;
+}
+
+/* ---- Progress chart ---- */
+.chart-section {
+  background: var(--bg2);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chart-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.chart-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-btn {
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chart-btn:hover { border-color: var(--accent); }
+.chart-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+#progressChart {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+
+.chart-legend-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 /* ---- Session list ---- */

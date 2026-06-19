@@ -53,7 +53,9 @@ export class PoseEngine {
     this.state = this.exercise.states[0].name;
     this.reps = 0;
     this.lastRepTime = 0;
-    this.filters = {}; // reset filters on exercise change
+    this._cycleStates = new Set();
+    this._fromStateTime = null;
+    this.filters = {};
   }
 
   onFeedback(cb) { this.feedbackCb = cb; }
@@ -113,38 +115,44 @@ export class PoseEngine {
   }
 
   updateState(angles) {
-    // Check states in reverse order (most specific first)
+    // Detect current phase
     const states = [...this.exercise.states].reverse();
+    let detected = null;
     for (const s of states) {
-      if (s.detect(angles)) {
-        const prev = this.state;
-        this.state = s.name;
+      if (s.detect(angles)) { detected = s.name; break; }
+    }
+    if (!detected) return this.state;
 
-        // Track which states we've passed through this cycle
-        if (!this._visitedStates) this._visitedStates = new Set();
-        this._visitedStates.add(this.state);
+    const prev = this.state;
+    this.state = detected;
 
-        // Check rep transition — require full cycle
-        const t = this.exercise.repTransition;
-        if (t && prev === t.from && this.state === t.to) {
-          const now = performance.now();
-          if (now - this.lastRepTime > this.repCooldown) {
-            // For rep-counting exercises, verify we passed through enough states
-            // (at least 3 distinct states = went down and came back up)
-            const isHoldExercise = !t; // plank etc have no transition
-            if (!isHoldExercise && this._visitedStates.size >= 3) {
-              this.reps++;
-              this.lastRepTime = now;
-              if (this.repCb) this.repCb(this.reps);
-              console.log(`[FormCheck] Rep ${this.reps} counted! (${this.exercise.name})`);
-            }
+    // Track visited states this cycle
+    if (!this._cycleStates) this._cycleStates = new Set();
+    this._cycleStates.add(this.state);
+
+    // Check rep transition with debounce
+    const t = this.exercise.repTransition;
+    if (t && prev !== this.state) {
+      if (prev === t.from && this.state === t.to) {
+        const now = performance.now();
+        // Debounce: must have been in 'from' state for at least 200ms
+        // and cooldown between reps
+        const timeInFrom = this._fromStateTime ? (now - this._fromStateTime) : 0;
+        if (now - this.lastRepTime > this.repCooldown && timeInFrom > 200) {
+          if (this._cycleStates.size >= 2) {
+            this.reps++;
+            this.lastRepTime = now;
+            if (this.repCb) this.repCb(this.reps);
+            console.log("[FormCheck] Rep " + this.reps + " counted! (" + this.exercise.name + ")");
           }
-          // Reset visited states for next rep
-          this._visitedStates = new Set([this.state]);
         }
-        break;
+        this._cycleStates = new Set([this.state]);
+      } else if (this.state === t.from) {
+        // Just entered the 'from' state — start timing
+        this._fromStateTime = now;
       }
     }
+
     return this.state;
   }
 
