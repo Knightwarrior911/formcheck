@@ -796,6 +796,172 @@ html, body {
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn.danger { background: var(--bad); }
 
+/* ---- Custom builder ---- */
+#builderView {
+  background: var(--bg);
+  padding: 16px;
+  padding-bottom: 40px;
+}
+
+.builder-exercises {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.builder-exercise-item {
+  background: var(--bg2);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder-exercise-item select,
+.builder-exercise-item input {
+  background: var(--bg);
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+}
+
+.builder-exercise-item select { flex: 2; }
+.builder-exercise-item input { flex: 1; }
+
+.builder-exercise-item .remove-btn {
+  background: none;
+  border: none;
+  color: var(--bad);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* ---- Calendar ---- */
+#calendarView {
+  background: var(--bg);
+  padding: 16px;
+  padding-bottom: 40px;
+}
+
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.calendar-month {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 140px;
+  text-align: center;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.cal-header {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.cal-day:hover { background: rgba(255,255,255,0.08); }
+.cal-day.empty { background: none; cursor: default; }
+.cal-day.today { border: 1px solid var(--accent); }
+
+.cal-day.level-0 { background: rgba(255,255,255,0.02); }
+.cal-day.level-1 { background: rgba(74,222,128,0.15); }
+.cal-day.level-2 { background: rgba(74,222,128,0.35); }
+.cal-day.level-3 { background: rgba(74,222,128,0.6); }
+
+.calendar-legend {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 3px;
+}
+
+.calendar-day-detail {
+  margin-top: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- Animations ---- */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skeletonFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rep-count.pulse { animation: pulse 0.2s ease-out; }
+
+.view {
+  animation: fadeIn 0.2s ease-out;
+}
+
+#overlay {
+  animation: skeletonFadeIn 0.5s ease-out;
+}
+
+/* Streak flame animation */
+@keyframes flame {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.1); }
+}
+
+.streak-display { animation: flame 1s ease-in-out infinite; }
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 600px) {
   .exercise-btn { font-size: 9px; padding: 4px 8px; }

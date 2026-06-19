@@ -212,6 +212,60 @@
     </div>
   </div>
 
+  <!-- ==================== CUSTOM PROGRAM BUILDER ==================== -->
+  <div class="view hidden" id="builderView">
+    <div class="page-header">
+      <button class="btn small back-btn" id="builderBack">← Back</button>
+      <h2>Create Routine</h2>
+    </div>
+
+    <div class="form-group">
+      <label>Routine Name</label>
+      <input type="text" id="builderName" placeholder="e.g. Monday Leg Day" maxlength="40" />
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="builderDesc" placeholder="e.g. Leg focus with core finisher" maxlength="80" />
+    </div>
+
+    <div class="form-group">
+      <label>Exercises</label>
+      <div class="builder-exercises" id="builderExercises"></div>
+      <button class="btn ghost" id="builderAddExercise" style="margin-top:8px">+ Add Exercise</button>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn big" id="builderSave">Save Routine</button>
+    </div>
+
+    <!-- Custom programs list -->
+    <div class="settings-group" id="customProgramsGroup">
+      <h3>Your Custom Routines</h3>
+      <div id="customProgramsList"></div>
+    </div>
+  </div>
+
+  <!-- ==================== CALENDAR VIEW ==================== -->
+  <div class="view hidden" id="calendarView">
+    <div class="page-header">
+      <button class="btn small back-btn" id="calendarBack">← Back</button>
+      <h2>Workout Calendar</h2>
+    </div>
+    <div class="calendar-controls">
+      <button class="btn small" id="calPrev">← Prev</button>
+      <span class="calendar-month" id="calMonth"></span>
+      <button class="btn small" id="calNext">Next →</button>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div class="calendar-legend">
+      <span class="legend-dot" style="background:#1a1a1a"></span> No workout
+      <span class="legend-dot" style="background:#1a3a1a"></span> Light
+      <span class="legend-dot" style="background:#2a6a2a"></span> Moderate
+      <span class="legend-dot" style="background:#4ade80"></span> Strong
+    </div>
+    <div class="calendar-day-detail hidden" id="calDayDetail"></div>
+  </div>
+
   <!-- ==================== TUTORIAL VIEW ==================== -->
   <div class="view hidden" id="tutorialView">
     <div class="page-header">

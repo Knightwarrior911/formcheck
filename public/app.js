@@ -9,6 +9,7 @@ import { WorkoutTracker } from "./tracker.js";
 import { getExerciseList, EXERCISES } from "./exercises.js";
 import { getTutorial, getAllTutorials } from "./tutorial.js";
 import { getProgram, getProgramList } from "./programs.js";
+import { getCustomPrograms, saveCustomProgram, deleteCustomProgram, createNewProgram } from "./custom-programs.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
 
 // ---- MediaPipe ----
@@ -891,6 +892,271 @@ document.getElementById("summaryHome").addEventListener("click", () => {
   showView("splashView");
   initSplash();
 });
+
+// ==================== CUSTOM PROGRAM BUILDER ====================
+let editingProgram = null;
+
+function renderBuilder() {
+  const list = document.getElementById("customProgramsList");
+  const programs = getCustomPrograms();
+  if (programs.length === 0) {
+    list.innerHTML = '<div class="empty-state">No custom routines yet. Create one below!</div>';
+  } else {
+    list.innerHTML = programs
+      .map(
+        (p) => `
+        <div class="session-item">
+          <div class="session-info">
+            <div class="session-exercise">${p.name}</div>
+            <div class="session-meta">${p.description || ""} · ${p.exercises.length} exercises</div>
+          </div>
+          <div class="session-stats">
+            <button class="btn small" data-edit="${p.id}">Edit</button>
+            <button class="btn small ghost" data-del="${p.id}">✗</button>
+          </div>
+        </div>`
+      )
+    .join("");
+  }
+
+  // Build exercise dropdown
+  const exercises = getExerciseList();
+  const builderExercises = document.getElementById("builderExercises");
+  const existingExercises = editingProgram ? editingProgram.exercises : [];
+
+  builderExercises.innerHTML = existingExercises
+    .map(
+      (ex, i) => `
+      <div class="builder-exercise-item">
+        <select data-field="exerciseId" data-idx="${i}">
+          ${exercises
+            .map(
+              (e) =>
+                `<option value="${e.id}" ${e.id === ex.exerciseId ? "selected" : ""}>${e.name}</option>`
+            )
+            .join("")}
+        </select>
+        <input type="number" data-field="targetReps" data-idx="${i}" value="${ex.targetReps || 10}" min="1" max="100" placeholder="Reps" />
+        <input type="number" data-field="restSeconds" data-idx="${i}" value="${ex.restSeconds || 60}" min="10" max="300" placeholder="Rest" />
+        <button class="remove-btn" data-idx="${i}">✗</button>
+      </div>`
+    )
+    .join("");
+}
+
+function openBuilder(program = null) {
+  editingProgram = program
+    ? { ...program }
+    : createNewProgram("New Routine", "");
+  document.getElementById("builderName").value = editingProgram.name;
+  document.getElementById("builderDesc").value = editingProgram.description || "";
+  renderBuilder();
+  showView("builderView");
+}
+
+document.getElementById("btnCreateProgram")?.addEventListener("click", () => openBuilder());
+
+// Add "Create Custom" button to program picker
+const createProgramBtn = document.createElement("div");
+createProgramBtn.className = "program-option";
+createProgramBtn.style.borderColor = "var(--accent)";
+createProgramBtn.innerHTML = `
+  <div class="program-option-name" style="color:var(--accent)">+ Create Custom Routine</div>
+  <div class="program-option-desc">Build your own workout</div>
+`;
+createProgramBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openBuilder();
+});
+document.getElementById("programPicker")?.appendChild(createProgramBtn);
+
+document.getElementById("builderAddExercise").addEventListener("click", () => {
+  if (!editingProgram) return;
+  editingProgram.exercises.push({
+    exerciseId: "squat",
+    targetReps: 10,
+    restSeconds: 60,
+  });
+  renderBuilder();
+});
+
+document.getElementById("builderExercises").addEventListener("click", (e) => {
+  if (e.target.classList.contains("remove-btn")) {
+    const idx = parseInt(e.target.dataset.idx);
+    editingProgram.exercises.splice(idx, 1);
+    renderBuilder();
+  }
+});
+
+document.getElementById("builderSave").addEventListener("click", () => {
+  if (!editingProgram) return;
+
+  // Collect values from form
+  editingProgram.name =
+    document.getElementById("builderName").value.trim() || "My Routine";
+  editingProgram.description =
+    document.getElementById("builderDesc").value.trim();
+
+  // Collect exercise data
+  const items = document.querySelectorAll(".builder-exercise-item");
+  editingProgram.exercises = Array.from(items).map((item) => ({
+    exerciseId: item.querySelector('[data-field="exerciseId"]').value,
+    targetReps: parseInt(item.querySelector('[data-field="targetReps"]').value) || 10,
+    restSeconds: parseInt(item.querySelector('[data-field="restSeconds"]').value) || 60,
+  }));
+
+  if (editingProgram.exercises.length === 0) {
+    showToast("Add at least one exercise", { error: true });
+    return;
+  }
+
+  saveCustomProgram(editingProgram);
+  showToast(`Routine "${editingProgram.name}" saved ✓`);
+  showView("splashView");
+  initSplash();
+});
+
+document.getElementById("builderBack").addEventListener("click", () => {
+  showView("splashView");
+});
+
+// Edit/delete custom programs
+document.getElementById("customProgramsList").addEventListener("click", (e) => {
+  const editBtn = e.target.closest("[data-edit]");
+  const delBtn = e.target.closest("[data-del]");
+  if (editBtn) {
+    const program = getCustomPrograms().find((p) => p.id === editBtn.dataset.edit);
+    if (program) openBuilder(program);
+  }
+  if (delBtn) {
+    if (confirm("Delete this routine?")) {
+      deleteCustomProgram(delBtn.dataset.del);
+      renderBuilder();
+    }
+  }
+});
+
+// ==================== CALENDAR ====================
+let calMonth = new Date().getMonth();
+let calYear = new Date().getFullYear();
+
+function renderCalendar() {
+  const grid = document.getElementById("calendarGrid");
+  const monthLabel = document.getElementById("calMonth");
+
+  const months = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  monthLabel.textContent = `${months[calMonth]} ${calYear}`;
+
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+
+  // Get workout days this month
+  const sessions = tracker.getSessions(365);
+  const workoutDays = {};
+  sessions.forEach((s) => {
+    const d = new Date(s.startTime);
+    if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
+      const day = d.getDate();
+      workoutDays[day] = (workoutDays[day] || 0) + (s.reps || 0);
+    }
+  });
+
+  // Build grid
+  const headers = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  let html = headers.map((h) => `<div class="cal-header">${h}</div>`).join("");
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="cal-day empty"></div>';
+  }
+
+  // Day cells
+  const today = new Date();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday =
+      d === today.getDate() &&
+      calMonth === today.getMonth() &&
+      calYear === today.getFullYear();
+    const reps = workoutDays[d] || 0;
+    let level = 0;
+    if (reps > 0) level = 1;
+    if (reps > 30) level = 2;
+    if (reps > 60) level = 3;
+
+    html += `<div class="cal-day level-${level} ${isToday ? "today" : ""}" data-day="${d}">${d}</div>`;
+  }
+
+  grid.innerHTML = html;
+
+  // Click handler for day detail
+  grid.querySelectorAll(".cal-day:not(.empty)").forEach((cell) => {
+    cell.addEventListener("click", () => {
+      const day = parseInt(cell.dataset.day);
+      const daySessions = sessions.filter((s) => {
+        const d = new Date(s.startTime);
+        return (
+          d.getDate() === day &&
+          d.getMonth() === calMonth &&
+          d.getFullYear() === calYear
+        );
+      });
+      const detail = document.getElementById("calDayDetail");
+      if (daySessions.length === 0) {
+        detail.classList.add("hidden");
+        return;
+      }
+      detail.classList.remove("hidden");
+      const totalReps = daySessions.reduce((sum, s) => sum + (s.reps || 0), 0);
+      detail.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px">${months[calMonth]} ${day}, ${calYear}</div>
+        <div style="color:var(--good);font-size:24px;font-weight:800">${totalReps} total reps</div>
+        <div style="margin-top:8px;color:var(--muted);font-size:12px">
+          ${daySessions.map((s) => {
+            const ex = getExerciseList().find((e) => e.id === s.exerciseId);
+            return `${ex ? ex.name : s.exerciseId}: ${s.reps} reps`;
+          }).join("<br>")}
+        </div>
+      `;
+    });
+  });
+}
+
+document.getElementById("btnCalendar")?.addEventListener("click", () => {
+  calMonth = new Date().getMonth();
+  calYear = new Date().getFullYear();
+  renderCalendar();
+  showView("calendarView");
+});
+
+document.getElementById("calPrev").addEventListener("click", () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+
+document.getElementById("calNext").addEventListener("click", () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
+
+document.getElementById("calendarBack").addEventListener("click", () => {
+  showView("historyView");
+});
+
+// Add calendar button to history view
+const calBtn = document.createElement("button");
+calBtn.className = "btn small";
+calBtn.textContent = "📅 Calendar";
+calBtn.style.marginLeft = "8px";
+calBtn.addEventListener("click", () => {
+  calMonth = new Date().getMonth();
+  calYear = new Date().getFullYear();
+  renderCalendar();
+  showView("calendarView");
+});
+document.querySelector("#historyView .page-header")?.appendChild(calBtn);
 
 // ==================== PWA ====================
 if ("serviceWorker" in navigator) {
