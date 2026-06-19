@@ -21,7 +21,7 @@
       <p class="tagline">AI fitness form coach — right in your browser.</p>
       <p class="sub">Real-time pose tracking · Rep counting · Form feedback · 100% local · No install</p>
 
-      <!-- Onboarding: name + level -->
+      <!-- Onboarding: step 1 — name + level -->
       <div class="onboarding" id="onboardingStep1">
         <div class="form-group">
           <label>What's your name?</label>
@@ -32,10 +32,53 @@
           <div class="level-picker">
             <button class="level-btn" data-level="beginner">Beginner</button>
             <button class="level-btn active" data-level="intermediate">Intermediate</button>
-            <button class="level-btn" data-level="advanced">Advanced</button>
+            <button class="level-btn data-level="advanced">Advanced</button>
           </div>
         </div>
-        <button class="btn big" id="onboardingNext">Get Started →</button>
+        <button class="btn big" id="onboardingNext">Next →</button>
+      </div>
+
+      <!-- Onboarding: step 2 — how it works -->
+      <div class="onboarding hidden" id="onboardingStep2">
+        <h2 style="margin-bottom:16px">How it works</h2>
+        <div class="how-it-works">
+          <div class="hiw-step">
+            <div class="hiw-icon">📷</div>
+            <div class="hiw-text">
+              <div class="hiw-title">Stand in front of your camera</div>
+              <div class="hiw-desc">Full body visible, 6-8 feet away</div>
+            </div>
+          </div>
+          <div class="hiw-step">
+            <div class="hiw-icon">🏋️</div>
+            <div class="hiw-text">
+              <div class="hiw-title">Pick an exercise or program</div>
+              <div class="hiw-desc">Start with a beginner program or single exercise</div>
+            </div>
+          </div>
+          <div class="hiw-step">
+            <div class="hiw-icon">🤖</div>
+            <div class="hiw-text">
+              <div class="hiw-title">AI tracks your form</div>
+              <div class="hiw-desc">Real-time feedback, rep counting, and form correction</div>
+            </div>
+          </div>
+          <div class="hiw-step">
+            <div class="hiw-icon">📊</div>
+            <div class="hiw-text">
+              <div class="hiw-title">Track your progress</div>
+              <div class="hiw-desc">History, streaks, and progressive overload suggestions</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:20px">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Recommended for you:</div>
+          <div class="program-option active" id="recProgram" style="cursor:default">
+            <div class="program-option-name" id="recProgramName">Full Body</div>
+            <div class="program-option-desc" id="recProgramDesc">5 exercises · ~15 minutes</div>
+          </div>
+        </div>
+        <button class="btn big" id="onboardingStart" style="margin-top:16px">Start Your First Workout →</button>
       </div>
 
       <!-- Returning user: quick start + programs -->
@@ -143,6 +186,18 @@
         <button class="ctrl-btn" id="btnHistory" title="History">📊</button>
         <button class="ctrl-btn" id="btnSettings" title="Settings">⚙️</button>
         <button class="ctrl-btn danger" id="btnEndWorkout" title="End Workout">⏹</button>
+      </div>
+
+      <!-- Confirm end workout -->
+      <div class="confirm-overlay hidden" id="confirmOverlay">
+        <div class="confirm-card">
+          <div class="confirm-title">End workout?</div>
+          <div class="confirm-desc" id="confirmDesc"></div>
+          <div class="confirm-actions">
+            <button class="btn ghost" id="btnCancelEnd">Keep Going</button>
+            <button class="btn" id="btnConfirmEnd">End Workout</button>
+          </div>
+        </div>
       </div>
 
       <!-- Toast -->

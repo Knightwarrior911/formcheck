@@ -12,6 +12,7 @@ import { getProgram, getProgramList } from "./programs.js";
 import { getCustomPrograms, saveCustomProgram, deleteCustomProgram, createNewProgram } from "./custom-programs.js";
 import { recordCalAngle, isCalibrated, finalizeCalibration, clearCalibration, getCalibrationStatus } from "./calibration.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
+import { getEncouragement, getFormFeedback, getStreakMessage } from "./messages.js";
 
 // ---- MediaPipe ----
 import {
@@ -114,9 +115,9 @@ function initSplash() {
     welcomeName.textContent = profile.name;
     const streak = tracker.getStreak();
     if (streak > 0) {
-      splashStreak.textContent = `🔥 ${streak} day streak! Keep it going!`;
+      splashStreak.textContent = getStreakMessage(streak);
     } else {
-      splashStreak.textContent = "Start a workout today to begin your streak!";
+      splashStreak.textContent = getStreakMessage(0);
     }
     buildProgramPicker();
     buildQuickStart();
@@ -143,12 +144,36 @@ document.querySelectorAll("#onboardingStep1 .level-btn").forEach((btn) => {
 
 onboardingNext.addEventListener("click", () => {
   const name = userNameInput.value.trim() || "Athlete";
-  const levelBtn = document.querySelector(
-    "#onboardingStep1 .level-btn.active"
-  );
-  const level = levelBtn ? levelBtn.dataset.level : "intermediate";
-  tracker.setProfile({ name, level });
-  startCamera();
+  const levelBtn = document.querySelector("#onboardingStep1 .level-btn.active");
+  userLevel = levelBtn ? levelBtn.dataset.level : "intermediate";
+  tracker.setProfile({ name, level: userLevel });
+  document.getElementById("onboardingStep1").classList.add("hidden");
+  document.getElementById("onboardingStep2").classList.remove("hidden");
+  const recName = document.getElementById("recProgramName");
+  const recDesc = document.getElementById("recProgramDesc");
+  if (userLevel === "beginner") {
+    recName.textContent = "Core Blast";
+    recDesc.textContent = "3 exercises · ~10 minutes · Low intensity";
+    currentProgram = getProgram("core");
+  } else if (userLevel === "advanced") {
+    recName.textContent = "HIIT Quick";
+    recDesc.textContent = "5 exercises · ~15 minutes · High intensity";
+    currentProgram = getProgram("hiit");
+  } else {
+    recName.textContent = "Full Body";
+    recDesc.textContent = "5 exercises · ~15 minutes";
+    currentProgram = getProgram("full_body");
+  }
+  currentProgramIndex = 0;
+});
+
+document.getElementById("onboardingStart").addEventListener("click", () => {
+  document.getElementById("onboardingStep2").classList.add("hidden");
+  returningUser.classList.remove("hidden");
+  onboardingStep1.classList.add("hidden");
+  buildProgramPicker();
+  buildQuickStart();
+  showProgressPreview();
 });
 
 // ==================== EXERCISE PICKER ====================
@@ -243,6 +268,7 @@ buildExercisePicker();
 let currentProgram = null;
 let currentProgramIndex = 0;
 let restInterval = null;
+let userLevel = "intermediate";
 
 function buildProgramPicker() {
   const picker = document.getElementById("programPicker");
@@ -509,29 +535,42 @@ startBtn.addEventListener("click", () => {
 // End workout button in program mode advances to next exercise
 document.getElementById("btnEndWorkout").addEventListener("click", () => {
   if (currentProgram && currentProgramIndex < currentProgram.exercises.length - 1) {
-    // Not the last exercise — advance
-    if (restInterval) {
-      clearInterval(restInterval);
-      document.getElementById("restOverlay").classList.add("hidden");
-    }
-    advanceProgram();
+    const remaining = currentProgram.exercises.length - currentProgramIndex - 1;
+    showConfirm("You have " + remaining + " exercise" + (remaining > 1 ? "s" : "") + " remaining. End workout now?", () => {
+      endWorkout();
+    });
   } else {
-    // Last exercise or no program — end workout
-    if (restInterval) {
-      clearInterval(restInterval);
-      document.getElementById("restOverlay").classList.add("hidden");
-    }
-    const session = tracker.endSession();
-    stopCamera();
-    if (session) {
-      renderSummary(session);
-      showView("summaryView");
-    } else {
-      showView("splashView");
-      initSplash();
-    }
+    endWorkout();
   }
 });
+
+function showConfirm(desc, onConfirm) {
+  const overlay = document.getElementById("confirmOverlay");
+  document.getElementById("confirmDesc").textContent = desc;
+  overlay.classList.remove("hidden");
+  document.getElementById("btnCancelEnd").onclick = () => overlay.classList.add("hidden");
+  document.getElementById("btnConfirmEnd").onclick = () => {
+    overlay.classList.add("hidden");
+    onConfirm();
+  };
+}
+
+function endWorkout() {
+  if (restInterval) {
+    clearInterval(restInterval);
+    restInterval = null;
+    document.getElementById("restOverlay").classList.add("hidden");
+  }
+  const session = tracker.endSession();
+  stopCamera();
+  if (session) {
+    renderSummary(session);
+    showView("summaryView");
+  } else {
+    showView("splashView");
+    initSplash();
+  }
+}
 
 // ==================== UI HELPERS ====================
 function showToast(msg, { error = false, spinner = false, sticky = false } = {}) {
@@ -556,6 +595,7 @@ function setBadge(text, cls) {
 
 // ==================== ENGINE CALLBACKS ====================
 engine.onRep((count) => {
+  const prevCount = parseInt(repCount.textContent) || 0;
   repCount.textContent = count;
   repCount.style.transform = "scale(1.4)";
   setTimeout(() => (repCount.style.transform = "scale(1)"), 200);
@@ -567,6 +607,14 @@ engine.onRep((count) => {
   const currentFeedback = engine._lastFeedback || [];
   const hasError = currentFeedback.some((f) => f.severity === "bad");
   tracker.recordRep(hasError ? "bad" : "good");
+
+  // Show encouragement on milestones
+  const msg = getEncouragement(engine.state, count, prevCount);
+  if (msg) {
+    feedbackText.textContent = msg;
+    feedbackDetail.textContent = "";
+    feedbackPanel.className = "feedback-panel good";
+  }
 });
 
 engine.onFeedback((feedback, state) => {
@@ -584,7 +632,9 @@ engine.onFeedback((feedback, state) => {
   feedback.sort((a, b) => priority[a.severity] - priority[b.severity]);
 
   const top = feedback[0];
-  feedbackText.textContent = top.msg;
+  // Use varied messages for good feedback, keep specific warnings/errors
+  const displayMsg = top.severity === "good" ? getFormFeedback(top.severity, top.msg) : top.msg;
+  feedbackText.textContent = displayMsg || top.msg;
   feedbackDetail.textContent = feedback.length > 1 ? feedback[1].msg : "";
   feedbackPanel.className = "feedback-panel " + top.severity;
 
