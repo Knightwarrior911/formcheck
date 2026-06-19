@@ -143,18 +143,33 @@ onboardingNext.addEventListener("click", () => {
   startCamera();
 });
 
-startBtn.addEventListener("click", startCamera);
-
 // ==================== EXERCISE PICKER ====================
 function buildExercisePicker() {
   const exercises = getExerciseList();
+  const categories = [
+    { id: "legs", name: "Legs", icon: "🦵" },
+    { id: "push", name: "Push", icon: "💪" },
+    { id: "pull", name: "Pull", icon: "🏋️" },
+    { id: "core", name: "Core", icon: "🎯" },
+  ];
   exercisePicker.innerHTML = "";
-  exercises.forEach((ex) => {
-    const btn = document.createElement("button");
-    btn.className = "exercise-btn" + (ex.id === engine.exerciseId ? " active" : "");
-    btn.dataset.exercise = ex.id;
-    btn.textContent = ex.name;
-    btn.addEventListener("click", () => {
+
+  categories.forEach((cat) => {
+    const catExercises = EXERCISES.filter((e) => e.category === cat.id);
+    if (catExercises.length === 0) return;
+
+    // Category header
+    const header = document.createElement("div");
+    header.className = "exercise-cat-header";
+    header.textContent = cat.icon + " " + cat.name;
+    exercisePicker.appendChild(header);
+
+    catExercises.forEach((ex) => {
+      const btn = document.createElement("button");
+      btn.className = "exercise-btn" + (ex.id === engine.exerciseId ? " active" : "");
+      btn.dataset.exercise = ex.id;
+      btn.textContent = ex.name;
+      btn.addEventListener("click", () => {
       document
         .querySelectorAll(".exercise-btn")
         .forEach((b) => b.classList.remove("active"));
@@ -162,6 +177,11 @@ function buildExercisePicker() {
       engine.setExercise(ex.id);
       repCount.textContent = "0";
       showToast(`Exercise: ${ex.name}`);
+
+      // Track exercise switch in session
+      if (tracker.getCurrentSession()) {
+        tracker.switchExercise(ex.id);
+      }
 
       // Set up UI for rep vs hold exercise
       const exerciseData = EXERCISES.find((e) => e.id === ex.id);
@@ -179,8 +199,9 @@ function buildExercisePicker() {
         holdTimer.classList.add("hidden");
         repLabel.textContent = "reps";
       }
+      });
+      exercisePicker.appendChild(btn);
     });
-    exercisePicker.appendChild(btn);
   });
 }
 
@@ -358,15 +379,25 @@ function showRestTimer(seconds, nextExerciseName) {
   let remaining = seconds;
   timer.textContent = remaining;
 
+  if (restInterval) clearInterval(restInterval);
+
   restInterval = setInterval(() => {
     remaining--;
     timer.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(restInterval);
+      restInterval = null;
       overlay.classList.add("hidden");
       startProgramExercise();
     }
   }, 1000);
+
+  document.getElementById("btnSkipRest").onclick = () => {
+    clearInterval(restInterval);
+    restInterval = null;
+    overlay.classList.add("hidden");
+    startProgramExercise();
+  };
 }
 
 function endWorkoutFlow() {
@@ -932,49 +963,69 @@ document.getElementById("tutorialBack").addEventListener("click", () => {
 
 // ==================== SUMMARY ====================
 function renderSummary(session) {
-  const ex = getExerciseList().find((e) => e.id === session.exerciseId);
+  const exercises = getExerciseList();
   const cal = tracker.estimateCalories(session.exerciseId, session.reps);
   const pb = tracker.getPersonalBest(session.exerciseId);
   const isPB = session.reps >= pb && session.reps > 0;
 
-  document.getElementById("summaryStats").innerHTML = `
-    <div class="summary-stat">
-      <div class="summary-stat-value">${ex ? ex.name : session.exerciseId}</div>
-      <div class="summary-stat-label">Exercise</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">${session.reps}</div>
-      <div class="summary-stat-label">Reps</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">${session.formScore || 0}%</div>
-      <div class="summary-stat-label">Form Score</div>
-    </div>
-    <div class="summary-stat">
-      <div class="summary-stat-value">~${cal}</div>
-      <div class="summary-stat-label">Est. Calories</div>
-    </div>
-    ${isPB ? `<div class="summary-stat" style="grid-column:span 2"><div class="summary-stat-value" style="color:var(--warn)">🏆 Personal Best!</div><div class="summary-stat-label">New record: ${session.reps} reps</div></div>` : ""}
-    <div class="summary-stat" style="grid-column:span 2">
-      <div class="summary-stat-value">${Math.round(session.duration / 60000 * 10) / 10}min</div>
-      <div class="summary-stat-label">Duration</div>
-    </div>
-  `;
+  let exerciseBreakdown = "";
+  if (session.exercises && session.exercises.length > 1) {
+    exerciseBreakdown = "<div style='grid-column:span 2;margin-top:8px;text-align:left;'>";
+    exerciseBreakdown += "<div style='font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px'>Exercise Breakdown</div>";
+    session.exercises.forEach(function(ex) {
+      const exData = exercises.find(function(e) { return e.id === ex.exerciseId; });
+      const name = exData ? exData.name : ex.exerciseId;
+      const fc = ex.formScore >= 70 ? "good" : ex.formScore >= 40 ? "warn" : "bad";
+      exerciseBreakdown += "<div style='display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--stroke)'>";
+      exerciseBreakdown += "<span>" + name + "</span>";
+      exerciseBreakdown += "<span>" + ex.reps + " reps · <span style='color:var(--" + fc + ")'>" + (ex.formScore || 0) + "%</span></span>";
+      exerciseBreakdown += "</div>";
+    });
+    exerciseBreakdown += "</div>";
+  }
 
-  // Add progressive overload suggestion
+  const mainEx = exercises.find(function(e) { return e.id === session.exerciseId; });
+
+  document.getElementById("summaryStats").innerHTML = [
+    '<div class="summary-stat">',
+      '<div class="summary-stat-value">' + (mainEx ? mainEx.name : session.exerciseId) + '</div>',
+      '<div class="summary-stat-label">' + (session.exercises && session.exercises.length > 1 ? "Last Exercise" : "Exercise") + '</div>',
+    '</div>',
+    '<div class="summary-stat">',
+      '<div class="summary-stat-value">' + session.reps + '</div>',
+      '<div class="summary-stat-label">Total Reps</div>',
+    '</div>',
+    '<div class="summary-stat">',
+      '<div class="summary-stat-value">' + (session.formScore || 0) + '%</div>',
+      '<div class="summary-stat-label">Form Score</div>',
+    '</div>',
+    '<div class="summary-stat">',
+      '<div class="summary-stat-value">~' + cal + '</div>',
+      '<div class="summary-stat-label">Est. Calories</div>',
+    '</div>',
+    isPB ? '<div class="summary-stat" style="grid-column:span 2"><div class="summary-stat-value" style="color:var(--warn)">&#127942; Personal Best!</div><div class="summary-stat-label">New record: ' + session.reps + ' reps</div></div>' : '',
+    '<div class="summary-stat" style="grid-column:span 2">',
+      '<div class="summary-stat-value">' + (Math.round(session.duration / 60000 * 10) / 10) + 'min</div>',
+      '<div class="summary-stat-label">Duration</div>',
+    '</div>',
+    exerciseBreakdown
+  ].join("");
+
   const progress = tracker.getProgressForExercise(session.exerciseId);
   if (progress && progress.suggestion) {
-    const suggestionHtml = `
-      <div style="margin-top:16px;padding:12px;background:rgba(91,140,255,0.1);border:1px solid rgba(91,140,255,0.3);border-radius:10px;grid-column:span 2">
-        <div style="font-size:13px;font-weight:600;color:var(--accent)">📈 ${progress.suggestion.message}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">
-          ${progress.sessions} sessions tracked · Best: ${progress.bestReps} reps · Avg form: ${progress.avgForm}%
-        </div>
-      </div>
-    `;
+    const suggestionHtml = [
+      '<div style="margin-top:16px;padding:12px;background:rgba(91,140,255,0.1);border:1px solid rgba(91,140,255,0.3);border-radius:10px;grid-column:span 2">',
+        '<div style="font-size:13px;font-weight:600;color:var(--accent)">&#128200; ' + progress.suggestion.message + '</div>',
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px">',
+          progress.sessions + ' sessions tracked · Best: ' + progress.bestReps + ' reps · Avg form: ' + progress.avgForm + '%',
+        '</div>',
+      '</div>'
+    ].join("");
     document.getElementById("summaryStats").insertAdjacentHTML("beforeend", suggestionHtml);
   }
 }
+
+document.getElementById("summaryHome")
 
 document.getElementById("summaryHome").addEventListener("click", () => {
   showView("splashView");

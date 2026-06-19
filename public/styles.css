@@ -179,18 +179,38 @@ html, body {
 
 .exercise-picker {
   display: flex;
-  gap: 5px;
+  flex-direction: column;
+  gap: 4px;
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
-  max-width: 55%;
+  max-width: 60%;
   padding-bottom: 4px;
   scrollbar-width: none;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .exercise-picker::-webkit-scrollbar {
   display: none;
+}
+
+.exercise-cat-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 4px 0 2px;
+  margin-top: 4px;
+  border-top: 1px solid var(--stroke);
+  flex-shrink: 0;
+}
+
+.exercise-cat-header:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 
 .exercise-btn {

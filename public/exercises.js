@@ -13,11 +13,19 @@
  * single-leg-dominant exercises.
  */
 
+export const EXERCISE_CATEGORIES = {
+  legs: { name: "Legs", icon: "🦵" },
+  push: { name: "Push", icon: "💪" },
+  pull: { name: "Pull", icon: "🏋️" },
+  core: { name: "Core", icon: "🎯" },
+};
+
 export const EXERCISES = [
   {
     id: "squat",
     name: "Squat",
     type: "rep",
+    category: "legs",
     joints: {
       knee: [23, 25, 27],   // hip-knee-ankle (left side = user's right leg)
       hip:  [11, 23, 25],   // shoulder-hip-knee
@@ -56,6 +64,7 @@ export const EXERCISES = [
     id: "pushup",
     name: "Push-up",
     type: "rep",
+    category: "push",
     joints: {
       elbow: [11, 13, 15],   // shoulder-elbow-wrist
       hip:   [11, 23, 25],   // shoulder-hip-knee
@@ -93,6 +102,7 @@ export const EXERCISES = [
     id: "lunge",
     name: "Lunge",
     type: "rep",
+    category: "legs",
     joints: {
       front_knee: [23, 25, 27],  // hip-knee-ankle
       hip:        [11, 23, 25],
@@ -122,6 +132,7 @@ export const EXERCISES = [
     id: "deadlift",
     name: "Deadlift",
     type: "rep",
+    category: "pull",
     joints: {
       hip:  [11, 23, 25],
       knee: [23, 25, 27],
@@ -149,6 +160,7 @@ export const EXERCISES = [
     id: "ohp",
     name: "Overhead Press",
     type: "rep",
+    category: "push",
     joints: {
       elbow:    [11, 13, 15],
       shoulder: [23, 11, 13],
@@ -209,6 +221,7 @@ export const EXERCISES = [
     id: "bicep_curl",
     name: "Bicep Curl",
     type: "rep",
+    category: "pull",
     joints: {
       elbow:    [11, 13, 15],   // shoulder-elbow-wrist
       shoulder: [23, 11, 13],   // hip-shoulder-elbow — should stay stable
@@ -246,6 +259,7 @@ export const EXERCISES = [
     id: "lateral_raise",
     name: "Lateral Raise",
     type: "rep",
+    category: "push",
     joints: {
       shoulder: [23, 11, 13],   // hip-shoulder-elbow
       elbow:    [11, 13, 15],   // shoulder-elbow-wrist
@@ -283,6 +297,7 @@ export const EXERCISES = [
     id: "situp",
     name: "Sit-up",
     type: "rep",
+    category: "core",
     joints: {
       hip:  [11, 23, 25],   // shoulder-hip-knee
       knee: [23, 25, 27],   // hip-knee-ankle

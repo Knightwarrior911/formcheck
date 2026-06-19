@@ -81,8 +81,29 @@ export class WorkoutTracker {
       reps: 0,
       formScores: [],
       duration: 0,
+      exercises: [{ exerciseId, reps: 0, formScores: [] }],
+      currentExerciseIndex: 0,
     };
     return this._currentSession;
+  }
+
+  switchExercise(exerciseId) {
+    if (!this._currentSession) return;
+    // Finalize current exercise
+    const scores = this._currentSession.formScores;
+    const goodCount = scores.filter((s) => s.ok).length;
+    const formScore = scores.length > 0 ? Math.round((goodCount / scores.length) * 100) : 0;
+
+    // Add new exercise to the list
+    this._currentSession.exercises.push({
+      exerciseId,
+      reps: 0,
+      formScores: [],
+      formScore,
+    });
+    this._currentSession.currentExerciseIndex = this._currentSession.exercises.length - 1;
+    this._currentSession.exerciseId = exerciseId;
+    this._currentSession.formScores = [];
   }
 
   recordRep(severity) {
@@ -93,6 +114,16 @@ export class WorkoutTracker {
       severity,
       timestamp: Date.now(),
     });
+    // Also track per-exercise
+    const idx = this._currentSession.currentExerciseIndex;
+    if (this._currentSession.exercises[idx]) {
+      this._currentSession.exercises[idx].reps++;
+      this._currentSession.exercises[idx].formScores.push({
+        ok: severity === "good",
+        severity,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   endSession() {
@@ -101,11 +132,18 @@ export class WorkoutTracker {
     this._currentSession.duration =
       this._currentSession.endTime - this._currentSession.startTime;
 
-    // Calculate form score
+    // Calculate overall form score
     const scores = this._currentSession.formScores;
     const goodCount = scores.filter((s) => s.ok).length;
     this._currentSession.formScore =
       scores.length > 0 ? Math.round((goodCount / scores.length) * 100) : 0;
+
+    // Calculate per-exercise form scores
+    this._currentSession.exercises.forEach((ex) => {
+      const exScores = ex.formScores || [];
+      const exGood = exScores.filter((s) => s.ok).length;
+      ex.formScore = exScores.length > 0 ? Math.round((exGood / exScores.length) * 100) : 0;
+    });
 
     // Save
     this.data.sessions.push({ ...this._currentSession });
@@ -114,6 +152,10 @@ export class WorkoutTracker {
     const session = { ...this._currentSession };
     this._currentSession = null;
     return session;
+  }
+
+  getCurrentSession() {
+    return this._currentSession;
   }
 
   getCurrentSession() {
