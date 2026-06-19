@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d0f14" />
+  <meta name="description" content="FormCheck — AI fitness form coach. Real-time pose tracking, rep counting, form feedback. 100% local." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>FormCheck · Fitness Form Coach</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="preconnect" href="https://storage.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ==================== SPLASH / ONBOARDING ==================== -->
+  <div class="view" id="splashView">
+    <div class="splash-card">
+      <h1>FormCheck</h1>
+      <p class="tagline">AI fitness form coach — right in your browser.</p>
+      <p class="sub">Real-time pose tracking · Rep counting · Form feedback · 100% local · No install</p>
+
+      <!-- Onboarding: name + level -->
+      <div class="onboarding" id="onboardingStep1">
+        <div class="form-group">
+          <label>What's your name?</label>
+          <input type="text" id="userName" placeholder="Enter your name" maxlength="30" />
+        </div>
+        <div class="form-group">
+          <label>Fitness level</label>
+          <div class="level-picker">
+            <button class="level-btn" data-level="beginner">Beginner</button>
+            <button class="level-btn active" data-level="intermediate">Intermediate</button>
+            <button class="level-btn" data-level="advanced">Advanced</button>
+          </div>
+        </div>
+        <button class="btn big" id="onboardingNext">Get Started →</button>
+      </div>
+
+      <!-- Returning user: just start -->
+      <div class="returning hidden" id="returningUser">
+        <p class="welcome-back">Welcome back, <span id="welcomeName">Athlete</span>! 🔥</p>
+        <p class="streak-display" id="splashStreak"></p>
+        <button class="btn big" id="startBtn">Start Workout</button>
+      </div>
+
+      <small id="splashNote">Camera permission required · 100% local processing</small>
+    </div>
+  </div>
+
+  <!-- ==================== CAMERA / WORKOUT VIEW ==================== -->
+  <div class="view hidden" id="cameraView">
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <!-- Top bar -->
+      <div class="top-bar" id="topBar">
+        <div class="exercise-picker" id="exercisePicker"></div>
+        <div class="rep-display" id="repDisplay">
+          <span class="rep-count" id="repCount">0</span>
+          <span class="rep-label">reps</span>
+        </div>
+      </div>
+
+      <!-- Status badge -->
+      <div class="status-badge" id="statusBadge">Loading…</div>
+
+      <!-- Feedback panel -->
+      <div class="feedback-panel" id="feedbackPanel">
+        <div class="feedback-text" id="feedbackText">Stand in front of camera</div>
+        <div class="feedback-detail" id="feedbackDetail"></div>
+      </div>
+
+      <!-- Debug panel -->
+      <div class="debug-panel" id="debugPanel">
+        <div class="debug-title">Debug</div>
+        <div class="debug-state" id="debugState">State: —</div>
+        <div class="debug-angles" id="debugAngles">—</div>
+      </div>
+
+      <!-- Bottom controls -->
+      <div class="bottom-controls">
+        <button class="ctrl-btn" id="btnHistory" title="History">📊</button>
+        <button class="ctrl-btn" id="btnSettings" title="Settings">⚙️</button>
+        <button class="ctrl-btn danger" id="btnEndWorkout" title="End Workout">⏹</button>
+      </div>
+
+      <!-- Toast -->
+      <div class="toast hidden" id="toast"></div>
+    </div>
+  </div>
+
+  <!-- ==================== HISTORY VIEW ==================== -->
+  <div class="view hidden" id="historyView">
+    <div class="page-header">
+      <button class="btn small back-btn" id="historyBack">← Back</button>
+      <h2>Workout History</h2>
+    </div>
+
+    <!-- Stats summary -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-value" id="statSessions">0</div>
+        <div class="stat-label">Sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statReps">0</div>
+        <div class="stat-label">Total Reps</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statStreak">0</div>
+        <div class="stat-label">Day Streak 🔥</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statForm">0%</div>
+        <div class="stat-label">Avg Form</div>
+      </div>
+    </div>
+
+    <!-- Session list -->
+    <div class="session-list" id="sessionList"></div>
+  </div>
+
+  <!-- ==================== SETTINGS VIEW ==================== -->
+  <div class="view hidden" id="settingsView">
+    <div class="page-header">
+      <button class="btn small back-btn" id="settingsBack">← Back</button>
+      <h2>Settings</h2>
+    </div>
+
+    <div class="settings-group">
+      <h3>Profile</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="settingsName" maxlength="30" />
+      </div>
+      <div class="form-group">
+        <label>Fitness Level</label>
+        <div class="level-picker">
+          <button class="level-btn" data-level="beginner">Beginner</button>
+          <button class="level-btn" data-level="intermediate">Intermediate</button>
+          <button class="level-btn" data-level="advanced">Advanced</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>Workout</h3>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="settingAudio" checked />
+          <span>Audio cues (rep count + form feedback)</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="settingSkeleton" checked />
+          <span>Show skeleton overlay</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="settingAngles" checked />
+          <span>Show angle values</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label>Rest timer (seconds)</label>
+        <input type="number" id="settingRestTimer" value="60" min="10" max="300" step="10" />
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>Data</h3>
+      <div class="settings-actions">
+        <button class="btn" id="btnExportData">📤 Export Data</button>
+        <button class="btn ghost" id="btnClearData">🗑 Clear All Data</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>About</h3>
+      <p class="about-text">FormCheck v0.1.0 · 100% local · No cloud · No tracking · <a href="#" id="btnDebugLog">View debug log</a></p>
+    </div>
+  </div>
+
+  <!-- ==================== WORKOUT SUMMARY VIEW ==================== -->
+  <div class="view hidden" id="summaryView">
+    <div class="summary-card">
+      <h2>Workout Complete! 🎉</h2>
+      <div class="summary-stats" id="summaryStats"></div>
+      <div class="summary-actions">
+        <button class="btn big" id="summaryHome">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
