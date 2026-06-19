@@ -13,6 +13,7 @@ import { getCustomPrograms, saveCustomProgram, deleteCustomProgram, createNewPro
 import { recordCalAngle, isCalibrated, finalizeCalibration, clearCalibration, getCalibrationStatus } from "./calibration.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
 import { getEncouragement, getFormFeedback, getStreakMessage } from "./messages.js";
+import { playRepSound, playMilestoneSound, playErrorSound, playSuccessSound, playWorkoutCompleteSound, playCountdownBeep } from "./sounds.js";
 
 // ---- MediaPipe ----
 import {
@@ -101,6 +102,20 @@ let isCalibrating = false;
 let calPhase = "waiting"; // waiting | top | bottom | done
 let calRepCount = 0;
 let calAngles = {};
+
+// Performance: cache settings, throttle debug updates
+let _cachedSettings = null;
+let _settingsCacheTime = 0;
+let _debugFrameCount = 0;
+
+function getCachedSettings() {
+  const now = Date.now();
+  if (!_cachedSettings || now - _settingsCacheTime > 5000) {
+    _cachedSettings = tracker.getSettings();
+    _settingsCacheTime = now;
+  }
+  return _cachedSettings;
+}
 
 // ==================== VIEW MANAGEMENT ====================
 function showView(viewId) {
@@ -482,6 +497,9 @@ function showRestTimer(seconds, nextExerciseName) {
   restInterval = setInterval(() => {
     remaining--;
     timer.textContent = remaining;
+    // Countdown beeps for last 3 seconds
+    const settings = getCachedSettings();
+    if (settings.audioEnabled) playCountdownBeep(remaining);
     if (remaining <= 0) {
       clearInterval(restInterval);
       restInterval = null;
@@ -603,8 +621,16 @@ engine.onRep((count) => {
   repCount.style.transform = "scale(1.4)";
   setTimeout(() => (repCount.style.transform = "scale(1)"), 200);
 
-  const settings = tracker.getSettings();
-  if (settings.audioEnabled) sayRep(count);
+  const settings = getCachedSettings();
+  if (settings.audioEnabled) {
+    sayRep(count);
+    // Also play a short beep
+    playRepSound();
+    // Milestone chime
+    if ([5, 10, 15, 20, 25, 30, 50].includes(count)) {
+      setTimeout(() => playMilestoneSound(), 150);
+    }
+  }
 
   // Record rep in tracker
   const currentFeedback = engine._lastFeedback || [];
@@ -641,16 +667,23 @@ engine.onFeedback((feedback, state) => {
   feedbackDetail.textContent = feedback.length > 1 ? feedback[1].msg : "";
   feedbackPanel.className = "feedback-panel " + top.severity;
 
-  const settings = tracker.getSettings();
-  if (settings.audioEnabled) sayFeedback(top.severity, top.msg);
+  const settings = getCachedSettings();
+  if (settings.audioEnabled) {
+    sayFeedback(top.severity, top.msg);
+    if (top.severity === "bad") playErrorSound();
+  }
 });
 
 engine.onAngles((angles, state) => {
-  debugState.textContent = `State: ${state}`;
-  const lines = Object.entries(angles).map(
-    ([k, v]) => `${k}: ${v != null ? Math.round(v) + "°" : "N/A"}`
-  );
-  debugAngles.textContent = lines.join(" | ");
+  // Throttle debug updates to every 30 frames (~1 sec at 30fps)
+  _debugFrameCount++;
+  if (_debugFrameCount % 30 === 0) {
+    debugState.textContent = "State: " + state;
+    const lines = Object.entries(angles).map(
+      ([k, v]) => k + ": " + (v != null ? Math.round(v) + "°" : "N/A")
+    );
+    debugAngles.textContent = lines.join(" | ");
+  }
 });
 
 // ==================== CAMERA ====================
@@ -814,7 +847,7 @@ function loop() {
       const w = window.innerWidth;
       const h = window.innerHeight;
 
-      const settings = tracker.getSettings();
+      const settings = getCachedSettings();
 
       if (result.landmarks && result.landmarks.length > 0) {
         const landmarks = result.landmarks[0];
@@ -863,7 +896,7 @@ function loop() {
               // Audio cue every 5 seconds
               if (elapsed > 0 && elapsed % 5 === 0 && elapsed !== lastHoldSecond) {
                 lastHoldSecond = elapsed;
-                const settings = tracker.getSettings();
+                const settings = getCachedSettings();
                 if (settings.audioEnabled) say(`${elapsed} seconds`);
               }
             }
@@ -885,8 +918,18 @@ function loop() {
       } else {
         octx.clearRect(0, 0, w, h);
         setBadge("No pose detected", "loading");
-        feedbackText.textContent = "Step into frame";
-        feedbackDetail.textContent = "Stand 6-8 feet from camera, full body visible";
+        // Rotate through helpful messages
+        const noPoseMessages = [
+          ["Step back", "I need to see your full body"],
+          ["Check lighting", "Make sure your room is well lit"],
+          ["Face the camera", "Stand facing your webcam"],
+          ["Move back", "Stand 6-8 feet from the camera"],
+          ["Full body visible", "Head to toe should be in frame"],
+        ];
+        const msgIdx = Math.floor(Date.now() / 3000) % noPoseMessages.length;
+        const msg = noPoseMessages[msgIdx];
+        feedbackText.textContent = msg[0];
+        feedbackDetail.textContent = msg[1];
         feedbackPanel.className = "feedback-panel";
         holdGoodFrames = 0;
         holdStartTime = 0;
@@ -1071,7 +1114,7 @@ document.getElementById("historyBack").addEventListener("click", () => {
 // ==================== SETTINGS ====================
 function renderSettings() {
   const profile = tracker.getProfile();
-  const settings = tracker.getSettings();
+  const settings = getCachedSettings();
   settingsName.value = profile.name || "";
   settingAudio.checked = settings.audioEnabled;
   settingSkeleton.checked = settings.showSkeleton;
@@ -1321,6 +1364,12 @@ document.getElementById("tutorialBack").addEventListener("click", () => {
 
 // ==================== SUMMARY ====================
 function renderSummary(session) {
+  // Play workout complete sound
+  const settings = getCachedSettings();
+  if (settings.audioEnabled) {
+    setTimeout(() => playWorkoutCompleteSound(), 300);
+  }
+
   const exercises = getExerciseList();
   const cal = tracker.estimateCalories(session.exerciseId, session.reps);
   const pb = tracker.getPersonalBest(session.exerciseId);
@@ -1758,6 +1807,7 @@ function runCalibration(landmarks, now) {
         calPhase = "waiting";
         document.getElementById("calOverlay").classList.add("hidden");
         showToast("Calibration complete! ✓");
+        playSuccessSound();
         updateCalBanner();
       } else {
         calPhase = "top";

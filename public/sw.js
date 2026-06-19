@@ -19,6 +19,7 @@ const SHELL_FILES = [
   "/custom-programs.js",
   "/tutorial.js",
   "/messages.js",
+  "/sounds.js",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",
