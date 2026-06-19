@@ -12,6 +12,20 @@
   --bad: #ff4d4d;
 }
 
+[data-theme="light"] {
+  --bg: #f5f6f8;
+  --bg2: #ffffff;
+  --panel: rgba(255, 255, 255, 0.85);
+  --panel-solid: #ffffff;
+  --stroke: rgba(0, 0, 0, 0.1);
+  --text: #1a1d23;
+  --muted: #6b7280;
+  --accent: #3b6cf5;
+  --good: #16a34a;
+  --warn: #ca8a04;
+  --bad: #dc2626;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -180,38 +194,53 @@ html, body {
 .exercise-picker {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  max-width: 60%;
+}
+
+.exercise-tabs {
+  display: flex;
   gap: 4px;
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  pointer-events: auto;
-  max-width: 60%;
-  padding-bottom: 4px;
   scrollbar-width: none;
-  max-height: 50vh;
-  overflow-y: auto;
+  padding-bottom: 2px;
 }
 
-.exercise-picker::-webkit-scrollbar {
-  display: none;
-}
+.exercise-tabs::-webkit-scrollbar { display: none; }
 
-.exercise-cat-header {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.exercise-tab {
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--stroke);
   color: var(--muted);
-  padding: 4px 0 2px;
-  margin-top: 4px;
-  border-top: 1px solid var(--stroke);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
   flex-shrink: 0;
+  min-height: 32px;
 }
 
-.exercise-cat-header:first-child {
-  border-top: none;
-  margin-top: 0;
+.exercise-tab:hover { border-color: var(--accent); color: var(--text); }
+.exercise-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.exercise-list {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  max-height: 120px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+
+.exercise-list::-webkit-scrollbar { width: 4px; }
+.exercise-list::-webkit-scrollbar-thumb { background: var(--stroke); border-radius: 2px; }
 
 .exercise-btn {
   background: var(--panel);
@@ -745,6 +774,58 @@ html, body {
   background: var(--good);
   border-radius: 3px;
   transition: width 0.3s linear;
+}
+
+/* ---- Loading overlay ---- */
+#loadingView {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  padding: 20px;
+}
+
+.loading-card {
+  text-align: center;
+  max-width: 360px;
+  padding: 30px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+.loading-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.loading-detail {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  min-height: 18px;
+}
+
+.loading-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loading-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
 /* ---- Calibration ---- */

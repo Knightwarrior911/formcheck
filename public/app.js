@@ -75,6 +75,7 @@ const settingAudio = document.getElementById("settingAudio");
 const settingSkeleton = document.getElementById("settingSkeleton");
 const settingAngles = document.getElementById("settingAngles");
 const settingRestTimer = document.getElementById("settingRestTimer");
+const settingDarkMode = document.getElementById("settingDarkMode");
 
 // ---- State ----
 let poseLandmarker = null;
@@ -153,9 +154,37 @@ onboardingNext.addEventListener("click", () => {
 });
 
 // ==================== EXERCISE PICKER ====================
+let activeCategory = "all";
+
+function selectExercise(exId) {
+  document.querySelectorAll(".exercise-btn").forEach((b) => b.classList.remove("active"));
+  const btn = document.querySelector(`.exercise-btn[data-exercise="${exId}"]`);
+  if (btn) btn.classList.add("active");
+  engine.setExercise(exId);
+  repCount.textContent = "0";
+  const exData = EXERCISES.find((e) => e.id === exId);
+  showToast(`Exercise: ${exData ? exData.name : exId}`);
+
+  if (tracker.getCurrentSession()) tracker.switchExercise(exId);
+
+  isHoldExercise = exData && exData.type === "hold";
+  if (isHoldExercise) {
+    repDisplay.classList.add("hidden");
+    holdTimer.classList.remove("hidden");
+    holdTarget.textContent = (exData.holdTargetSeconds || 60) + "s";
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+    repLabel.textContent = "hold";
+  } else {
+    repDisplay.classList.remove("hidden");
+    holdTimer.classList.add("hidden");
+    repLabel.textContent = "reps";
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+  }
+}
+
 function buildExercisePicker() {
-  const exercises = getExerciseList();
   const categories = [
+    { id: "all", name: "All", icon: "🏋️" },
     { id: "legs", name: "Legs", icon: "🦵" },
     { id: "push", name: "Push", icon: "💪" },
     { id: "pull", name: "Pull", icon: "🏋️" },
@@ -164,57 +193,49 @@ function buildExercisePicker() {
   ];
   exercisePicker.innerHTML = "";
 
+  // Category filter tabs
+  const tabsEl = document.createElement("div");
+  tabsEl.className = "exercise-tabs";
   categories.forEach((cat) => {
-    const catExercises = EXERCISES.filter((e) => e.category === cat.id);
-    if (catExercises.length === 0) return;
-
-    // Category header
-    const header = document.createElement("div");
-    header.className = "exercise-cat-header";
-    header.textContent = cat.icon + " " + cat.name;
-    exercisePicker.appendChild(header);
-
-    catExercises.forEach((ex) => {
-      const btn = document.createElement("button");
-      btn.className = "exercise-btn" + (ex.id === engine.exerciseId ? " active" : "");
-      btn.dataset.exercise = ex.id;
-      btn.textContent = ex.name;
-      btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".exercise-btn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      engine.setExercise(ex.id);
-      repCount.textContent = "0";
-      showToast(`Exercise: ${ex.name}`);
-
-      // Track exercise switch in session
-      if (tracker.getCurrentSession()) {
-        tracker.switchExercise(ex.id);
-      }
-
-      // Set up UI for rep vs hold exercise
-      const exerciseData = EXERCISES.find((e) => e.id === ex.id);
-      isHoldExercise = exerciseData && exerciseData.type === "hold";
-      if (isHoldExercise) {
-        repDisplay.classList.add("hidden");
-        holdTimer.classList.remove("hidden");
-        holdTarget.textContent = (exerciseData.holdTargetSeconds || 60) + "s";
-        holdStartTime = 0;
-        holdGoodFrames = 0;
-        lastHoldSecond = 0;
-        repLabel.textContent = "hold";
-      } else {
-        repDisplay.classList.remove("hidden");
-        holdTimer.classList.add("hidden");
-        repLabel.textContent = "reps";
-        holdStartTime = 0;
-        holdGoodFrames = 0;
-        lastHoldSecond = 0;
-      }
-      });
-      exercisePicker.appendChild(btn);
+    const tab = document.createElement("button");
+    tab.className = "exercise-tab" + (activeCategory === cat.id ? " active" : "");
+    tab.dataset.cat = cat.id;
+    tab.textContent = cat.icon + " " + cat.name;
+    tab.addEventListener("click", () => {
+      activeCategory = cat.id;
+      document.querySelectorAll(".exercise-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      renderExerciseList();
     });
+    tabsEl.appendChild(tab);
+  });
+  exercisePicker.appendChild(tabsEl);
+
+  // Exercise list container
+  const listEl = document.createElement("div");
+  listEl.className = "exercise-list";
+  listEl.id = "exerciseList";
+  exercisePicker.appendChild(listEl);
+
+  renderExerciseList();
+}
+
+function renderExerciseList() {
+  const listEl = document.getElementById("exerciseList");
+  if (!listEl) return;
+  const filtered = activeCategory === "all"
+    ? EXERCISES
+    : EXERCISES.filter((e) => e.category === activeCategory);
+
+  listEl.innerHTML = "";
+  filtered.forEach((ex) => {
+    const btn = document.createElement("button");
+    btn.className = "exercise-btn" + (ex.id === engine.exerciseId ? " active" : "");
+    btn.dataset.exercise = ex.id;
+    const typeIcon = ex.type === "hold" ? "⏱" : "🔄";
+    btn.textContent = typeIcon + " " + ex.name;
+    btn.addEventListener("click", () => selectExercise(ex.id));
+    listEl.appendChild(btn);
   });
 }
 
@@ -651,16 +672,50 @@ async function initCamera() {
   return cameraInitializing;
 }
 
+function showLoading(title, detail, pct) {
+  showView("loadingView");
+  document.getElementById("loadingTitle").textContent = title || "Loading…";
+  document.getElementById("loadingDetail").textContent = detail || "";
+  document.getElementById("loadingBarFill").style.width = (pct || 0) + "%";
+  document.getElementById("loadingRetry").classList.add("hidden");
+}
+
+function showLoadingError(title, detail) {
+  showView("loadingView");
+  document.getElementById("loadingTitle").textContent = title || "Error";
+  document.getElementById("loadingDetail").textContent = detail || "";
+  document.getElementById("loadingBarFill").style.width = "0%";
+  document.getElementById("loadingRetry").classList.remove("hidden");
+}
+
 async function startCamera() {
-  showView("cameraView");
-  tracker.startSession(engine.exerciseId);
+  showLoading("Loading pose model…", "Downloading MediaPipe WASM + model (~5MB)", 10);
 
-  const ok = await initCamera();
-  if (!ok) return;
+  try {
+    tracker.startSession(engine.exerciseId);
+    showLoading("Loading pose model…", "Initializing…", 50);
 
-  running = true;
-  setBadge("Loading…", "loading");
-  loop();
+    const ok = await initCamera();
+    if (!ok) {
+      showLoadingError("Camera failed", "Could not access camera or load model. Check permissions and internet.");
+      document.getElementById("loadingRetry").onclick = () => startCamera();
+      return;
+    }
+
+    showLoading("Starting camera…", "Almost ready…", 90);
+
+    // Small delay for video to stabilize
+    await new Promise((r) => setTimeout(r, 500));
+
+    showView("cameraView");
+    running = true;
+    setBadge("Loading…", "loading");
+    loop();
+  } catch (err) {
+    console.error("[FormCheck] startCamera error:", err);
+    showLoadingError("Something went wrong", err.message || "Unknown error");
+    document.getElementById("loadingRetry").onclick = () => startCamera();
+  }
 }
 
 function pauseCamera() {
@@ -871,8 +926,13 @@ document.querySelectorAll("#settingsView .level-btn").forEach((btn) => {
   });
 });
 
+function applyTheme(dark) {
+  document.documentElement.setAttribute("data-theme", dark ? "" : "light");
+}
+
 function saveSettings() {
   const levelBtn = document.querySelector("#settingsView .level-btn.active");
+  const darkMode = settingDarkMode ? settingDarkMode.checked : true;
   tracker.setProfile({
     name: settingsName.value.trim(),
     level: levelBtn ? levelBtn.dataset.level : "intermediate",
@@ -882,7 +942,9 @@ function saveSettings() {
     showSkeleton: settingSkeleton.checked,
     showAngles: settingAngles.checked,
     restTimerSeconds: parseInt(settingRestTimer.value) || 60,
+    darkMode,
   });
+  applyTheme(darkMode);
   showToast("Settings saved ✓");
 }
 
@@ -891,6 +953,14 @@ settingAudio.addEventListener("change", saveSettings);
 settingSkeleton.addEventListener("change", saveSettings);
 settingAngles.addEventListener("change", saveSettings);
 settingRestTimer.addEventListener("change", saveSettings);
+if (settingDarkMode) settingDarkMode.addEventListener("change", saveSettings);
+
+// Init theme from saved settings
+const savedSettings = tracker.getSettings();
+if (savedSettings.darkMode === false) {
+  applyTheme(false);
+  if (settingDarkMode) settingDarkMode.checked = false;
+}
 
 document.getElementById("settingsBack").addEventListener("click", () => {
   saveSettings();
@@ -1526,6 +1596,57 @@ function runCalibration(landmarks, now) {
 const origLoop = loop;
 // We need to patch the loop to include calibration
 // Actually, let's add it to the existing loop function
+
+// ==================== KEYBOARD SHORTCUTS ====================
+document.addEventListener("keydown", (e) => {
+  // Don't trigger shortcuts when typing in inputs
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+  switch (e.key) {
+    case "Escape":
+      // Go back / close overlays
+      if (!document.getElementById("calOverlay").classList.contains("hidden")) {
+        document.getElementById("btnCancelCal").click();
+      } else if (!document.getElementById("restOverlay").classList.contains("hidden")) {
+        document.getElementById("btnSkipRest").click();
+      }
+      break;
+    case " ":
+    case "Enter":
+      // Start/pause workout (when on splash)
+      if (!splashView.classList.contains("hidden")) {
+        e.preventDefault();
+        startBtn.click();
+      }
+      break;
+    case "h":
+      // Toggle history
+      if (!cameraView.classList.contains("hidden")) {
+        document.getElementById("btnHistory").click();
+      }
+      break;
+    case "s":
+      // Toggle settings
+      if (!cameraView.classList.contains("hidden")) {
+        document.getElementById("btnSettings").click();
+      }
+      break;
+    case "e":
+      // End workout
+      if (!cameraView.classList.contains("hidden")) {
+        document.getElementById("btnEndWorkout").click();
+      }
+      break;
+    case "m":
+      // Toggle audio mute
+      if (settingAudio) {
+        settingAudio.checked = !settingAudio.checked;
+        saveSettings();
+        showToast(settingAudio.checked ? "Audio on" : "Audio off");
+      }
+      break;
+  }
+});
 
 // ==================== PWA ====================
 if ("serviceWorker" in navigator) {
