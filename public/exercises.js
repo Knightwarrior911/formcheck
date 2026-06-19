@@ -17,6 +17,7 @@ export const EXERCISES = [
   {
     id: "squat",
     name: "Squat",
+    type: "rep",
     joints: {
       knee: [23, 25, 27],   // hip-knee-ankle (left side = user's right leg)
       hip:  [11, 23, 25],   // shoulder-hip-knee
@@ -54,6 +55,7 @@ export const EXERCISES = [
   {
     id: "pushup",
     name: "Push-up",
+    type: "rep",
     joints: {
       elbow: [11, 13, 15],   // shoulder-elbow-wrist
       hip:   [11, 23, 25],   // shoulder-hip-knee
@@ -90,6 +92,7 @@ export const EXERCISES = [
   {
     id: "lunge",
     name: "Lunge",
+    type: "rep",
     joints: {
       front_knee: [23, 25, 27],  // hip-knee-ankle
       hip:        [11, 23, 25],
@@ -118,6 +121,7 @@ export const EXERCISES = [
   {
     id: "deadlift",
     name: "Deadlift",
+    type: "rep",
     joints: {
       hip:  [11, 23, 25],
       knee: [23, 25, 27],
@@ -144,6 +148,7 @@ export const EXERCISES = [
   {
     id: "ohp",
     name: "Overhead Press",
+    type: "rep",
     joints: {
       elbow:    [11, 13, 15],
       shoulder: [23, 11, 13],
@@ -172,6 +177,8 @@ export const EXERCISES = [
   {
     id: "plank",
     name: "Plank",
+    type: "hold",
+    holdTargetSeconds: 60,
     joints: {
       hip:   [11, 23, 25],   // shoulder-hip-knee — should be ~180° (straight line)
       knee:  [23, 25, 27],   // hip-knee-ankle
@@ -201,6 +208,7 @@ export const EXERCISES = [
   {
     id: "bicep_curl",
     name: "Bicep Curl",
+    type: "rep",
     joints: {
       elbow:    [11, 13, 15],   // shoulder-elbow-wrist
       shoulder: [23, 11, 13],   // hip-shoulder-elbow — should stay stable
@@ -237,6 +245,7 @@ export const EXERCISES = [
   {
     id: "lateral_raise",
     name: "Lateral Raise",
+    type: "rep",
     joints: {
       shoulder: [23, 11, 13],   // hip-shoulder-elbow
       elbow:    [11, 13, 15],   // shoulder-elbow-wrist
@@ -273,6 +282,7 @@ export const EXERCISES = [
   {
     id: "situp",
     name: "Sit-up",
+    type: "rep",
     joints: {
       hip:  [11, 23, 25],   // shoulder-hip-knee
       knee: [23, 25, 27],   // hip-knee-ankle

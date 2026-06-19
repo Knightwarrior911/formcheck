@@ -38,11 +38,12 @@
         <button class="btn big" id="onboardingNext">Get Started →</button>
       </div>
 
-      <!-- Returning user: just start -->
+      <!-- Returning user: program picker -->
       <div class="returning hidden" id="returningUser">
         <p class="welcome-back">Welcome back, <span id="welcomeName">Athlete</span>! 🔥</p>
         <p class="streak-display" id="splashStreak"></p>
-        <button class="btn big" id="startBtn">Start Workout</button>
+        <div class="program-picker" id="programPicker"></div>
+        <button class="btn big" id="startBtn" style="margin-top:16px">Start Workout</button>
       </div>
 
       <small id="splashNote">Camera permission required · 100% local processing</small>
@@ -55,12 +56,30 @@
       <video id="video" playsinline muted></video>
       <canvas id="overlay"></canvas>
 
+      <!-- Workout flow steps -->
+      <div class="workout-flow hidden" id="workoutFlow"></div>
+
+      <!-- Rest timer overlay -->
+      <div class="rest-overlay hidden" id="restOverlay">
+        <div class="rest-card">
+          <div class="rest-title">Rest</div>
+          <div class="rest-timer" id="restTimer">60</div>
+          <div class="rest-next" id="restNext"></div>
+        </div>
+      </div>
+
       <!-- Top bar -->
       <div class="top-bar" id="topBar">
         <div class="exercise-picker" id="exercisePicker"></div>
         <div class="rep-display" id="repDisplay">
           <span class="rep-count" id="repCount">0</span>
-          <span class="rep-label">reps</span>
+          <span class="rep-label" id="repLabel">reps</span>
+        </div>
+        <!-- Hold timer overlay (hidden by default) -->
+        <div class="hold-timer hidden" id="holdTimer">
+          <div class="hold-time" id="holdTime">0:00</div>
+          <div class="hold-target">Target: <span id="holdTarget">60s</span></div>
+          <div class="hold-progress"><div class="hold-progress-bar" id="holdProgressBar" style="width:0%"></div></div>
         </div>
       </div>
 
@@ -176,8 +195,10 @@
       <h3>Data</h3>
       <div class="settings-actions">
         <button class="btn" id="btnExportData">📤 Export Data</button>
+        <button class="btn" id="btnImportData">📥 Import Data</button>
         <button class="btn ghost" id="btnClearData">🗑 Clear All Data</button>
       </div>
+      <input type="file" id="importFile" accept=".json" style="display:none" />
     </div>
 
     <div class="settings-group">

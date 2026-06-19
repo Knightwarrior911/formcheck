@@ -113,24 +113,34 @@ export class PoseEngine {
   }
 
   updateState(angles) {
-    // Check states in reverse order (most specific first: bottom → descending → ascending → standing)
-    // This prevents "standing" from matching when knee=95 (which also matches "descending" range)
+    // Check states in reverse order (most specific first)
     const states = [...this.exercise.states].reverse();
     for (const s of states) {
       if (s.detect(angles)) {
         const prev = this.state;
         this.state = s.name;
 
-        // Check rep transition
+        // Track which states we've passed through this cycle
+        if (!this._visitedStates) this._visitedStates = new Set();
+        this._visitedStates.add(this.state);
+
+        // Check rep transition — require full cycle
         const t = this.exercise.repTransition;
         if (t && prev === t.from && this.state === t.to) {
           const now = performance.now();
           if (now - this.lastRepTime > this.repCooldown) {
-            this.reps++;
-            this.lastRepTime = now;
-            if (this.repCb) this.repCb(this.reps);
-            console.log(`[FormCheck] Rep ${this.reps} counted! (${this.exercise.name})`);
+            // For rep-counting exercises, verify we passed through enough states
+            // (at least 3 distinct states = went down and came back up)
+            const isHoldExercise = !t; // plank etc have no transition
+            if (!isHoldExercise && this._visitedStates.size >= 3) {
+              this.reps++;
+              this.lastRepTime = now;
+              if (this.repCb) this.repCb(this.reps);
+              console.log(`[FormCheck] Rep ${this.reps} counted! (${this.exercise.name})`);
+            }
           }
+          // Reset visited states for next rep
+          this._visitedStates = new Set([this.state]);
         }
         break;
       }

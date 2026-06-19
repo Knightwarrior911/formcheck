@@ -6,8 +6,9 @@
 
 import { PoseEngine } from "./pose.js";
 import { WorkoutTracker } from "./tracker.js";
-import { getExerciseList } from "./exercises.js";
+import { getExerciseList, EXERCISES } from "./exercises.js";
 import { getTutorial, getAllTutorials } from "./tutorial.js";
+import { getProgram, getProgramList } from "./programs.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
 
 // ---- MediaPipe ----
@@ -55,6 +56,11 @@ const feedbackDetail = document.getElementById("feedbackDetail");
 const feedbackPanel = document.getElementById("feedbackPanel");
 const debugState = document.getElementById("debugState");
 const debugAngles = document.getElementById("debugAngles");
+const holdTimer = document.getElementById("holdTimer");
+const holdTime = document.getElementById("holdTime");
+const holdTarget = document.getElementById("holdTarget");
+const holdProgressBar = document.getElementById("holdProgressBar");
+const repLabel = document.getElementById("repLabel");
 const toast = document.getElementById("toast");
 
 // ---- DOM: History ----
@@ -75,6 +81,12 @@ let lastVideoTime = -1;
 const INF_W = 480;
 const infCanvas = document.createElement("canvas");
 const ictx = infCanvas.getContext("2d");
+
+// Hold timer state
+let holdStartTime = 0;
+let holdGoodFrames = 0; // consecutive frames in good hold position
+let lastHoldSecond = 0; // for audio cues
+let isHoldExercise = false;
 
 // ==================== VIEW MANAGEMENT ====================
 function showView(viewId) {
@@ -98,6 +110,7 @@ function initSplash() {
     } else {
       splashStreak.textContent = "Start a workout today to begin your streak!";
     }
+    buildProgramPicker();
   } else {
     // New user
     onboardingStep1.classList.remove("hidden");
@@ -146,12 +159,204 @@ function buildExercisePicker() {
       engine.setExercise(ex.id);
       repCount.textContent = "0";
       showToast(`Exercise: ${ex.name}`);
+
+      // Set up UI for rep vs hold exercise
+      const exerciseData = EXERCISES.find((e) => e.id === ex.id);
+      isHoldExercise = exerciseData && exerciseData.type === "hold";
+      if (isHoldExercise) {
+        repDisplay.classList.add("hidden");
+        holdTimer.classList.remove("hidden");
+        holdTarget.textContent = (exerciseData.holdTargetSeconds || 60) + "s";
+        holdStartTime = 0;
+        holdGoodFrames = 0;
+        lastHoldSecond = 0;
+        repLabel.textContent = "hold";
+      } else {
+        repDisplay.classList.remove("hidden");
+        holdTimer.classList.add("hidden");
+        repLabel.textContent = "reps";
+      }
     });
     exercisePicker.appendChild(btn);
   });
 }
 
 buildExercisePicker();
+
+// ==================== WORKOUT PROGRAMS ====================
+let currentProgram = null;
+let currentProgramIndex = 0;
+let restInterval = null;
+
+function buildProgramPicker() {
+  const picker = document.getElementById("programPicker");
+  const programs = getProgramList();
+  picker.innerHTML = "";
+  programs.forEach((p) => {
+    const div = document.createElement("div");
+    div.className = "program-option";
+    div.dataset.program = p.id;
+    div.innerHTML = `
+      <div class="program-option-name">${p.name}</div>
+      <div class="program-option-desc">${p.description}</div>
+    `;
+    div.addEventListener("click", () => {
+      document
+        .querySelectorAll(".program-option")
+        .forEach((d) => d.classList.remove("active"));
+      div.classList.add("active");
+      currentProgram = getProgram(p.id);
+      currentProgramIndex = 0;
+    });
+    picker.appendChild(div);
+  });
+  // Select first by default
+  if (programs.length > 0) {
+    currentProgram = getProgram(programs[0].id);
+    currentProgramIndex = 0;
+    picker.querySelector(".program-option").classList.add("active");
+  }
+}
+
+function buildWorkoutFlow() {
+  const flow = document.getElementById("workoutFlow");
+  if (!currentProgram) {
+    flow.classList.add("hidden");
+    return;
+  }
+  flow.classList.remove("hidden");
+  flow.innerHTML = currentProgram.exercises
+    .map((ex, i) => {
+      const exData = EXERCISES.find((e) => e.id === ex.exerciseId);
+      const name = exData ? exData.name : ex.exerciseId;
+      const cls = i < currentProgramIndex ? "done" : i === currentProgramIndex ? "active" : "";
+      return `<div class="flow-step ${cls}" title="${name}">${i + 1}</div>`;
+    })
+    .join("");
+}
+
+function startProgramExercise() {
+  if (!currentProgram || currentProgramIndex >= currentProgram.exercises.length) {
+    // Program complete!
+    endWorkoutFlow();
+    return;
+  }
+  const ex = currentProgram.exercises[currentProgramIndex];
+  engine.setExercise(ex.exerciseId);
+  repCount.textContent = "0";
+  buildWorkoutFlow();
+
+  // Set up UI for rep vs hold
+  const exerciseData = EXERCISES.find((e) => e.id === ex.exerciseId);
+  isHoldExercise = exerciseData && exerciseData.type === "hold";
+  if (isHoldExercise) {
+    repDisplay.classList.add("hidden");
+    holdTimer.classList.remove("hidden");
+    holdTarget.textContent = (exerciseData.holdTargetSeconds || ex.targetReps || 60) + "s";
+    holdStartTime = 0;
+    holdGoodFrames = 0;
+    lastHoldSecond = 0;
+    repLabel.textContent = "hold";
+  } else {
+    repDisplay.classList.remove("hidden");
+    holdTimer.classList.add("hidden");
+    repLabel.textContent = "reps";
+  }
+}
+
+function advanceProgram() {
+  if (!currentProgram) return;
+  currentProgramIndex++;
+
+  if (currentProgramIndex >= currentProgram.exercises.length) {
+    endWorkoutFlow();
+    return;
+  }
+
+  // Show rest timer
+  const nextEx = currentProgram.exercises[currentProgramIndex];
+  const restSeconds = nextEx.restSeconds || 60;
+  const nextExData = EXERCISES.find((e) => e.id === nextEx.exerciseId);
+  const nextName = nextExData ? nextExData.name : nextEx.exerciseId;
+
+  showRestTimer(restSeconds, nextName);
+}
+
+function showRestTimer(seconds, nextExerciseName) {
+  const overlay = document.getElementById("restOverlay");
+  const timer = document.getElementById("restTimer");
+  const next = document.getElementById("restNext");
+  overlay.classList.remove("hidden");
+  next.textContent = `Next: ${nextExerciseName}`;
+
+  let remaining = seconds;
+  timer.textContent = remaining;
+
+  restInterval = setInterval(() => {
+    remaining--;
+    timer.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(restInterval);
+      overlay.classList.add("hidden");
+      startProgramExercise();
+    }
+  }, 1000);
+}
+
+function endWorkoutFlow() {
+  currentProgram = null;
+  currentProgramIndex = 0;
+  document.getElementById("workoutFlow").classList.add("hidden");
+  // End the session
+  const session = tracker.endSession();
+  stopCamera();
+  if (session) {
+    renderSummary(session);
+    showView("summaryView");
+  } else {
+    showView("splashView");
+    initSplash();
+  }
+}
+
+// Override startBtn to use program flow
+startBtn.addEventListener("click", () => {
+  if (currentProgram) {
+    currentProgramIndex = 0;
+    startProgramExercise();
+    startCamera();
+  } else {
+    // No program selected — just start single exercise
+    startCamera();
+  }
+});
+
+// End workout button in program mode advances to next exercise
+document.getElementById("btnEndWorkout").addEventListener("click", () => {
+  if (currentProgram && currentProgramIndex < currentProgram.exercises.length - 1) {
+    // Not the last exercise — advance
+    if (restInterval) {
+      clearInterval(restInterval);
+      document.getElementById("restOverlay").classList.add("hidden");
+    }
+    advanceProgram();
+  } else {
+    // Last exercise or no program — end workout
+    if (restInterval) {
+      clearInterval(restInterval);
+      document.getElementById("restOverlay").classList.add("hidden");
+    }
+    const session = tracker.endSession();
+    stopCamera();
+    if (session) {
+      renderSummary(session);
+      showView("summaryView");
+    } else {
+      showView("splashView");
+      initSplash();
+    }
+  }
+});
 
 // ==================== UI HELPERS ====================
 function showToast(msg, { error = false, spinner = false, sticky = false } = {}) {
@@ -221,11 +426,10 @@ engine.onAngles((angles, state) => {
 });
 
 // ==================== CAMERA ====================
-async function startCamera() {
-  showView("cameraView");
+let cameraInitialized = false;
 
-  // Start tracker session
-  tracker.startSession(engine.exerciseId);
+async function initCamera() {
+  if (cameraInitialized && video.srcObject) return true;
 
   try {
     const vision = await FilesetResolver.forVisionTasks(WASM_URL);
@@ -254,7 +458,7 @@ async function startCamera() {
   } catch (err) {
     console.error(err);
     showToast("Failed to load pose model. Check internet.", { error: true });
-    return;
+    return false;
   }
 
   try {
@@ -267,7 +471,7 @@ async function startCamera() {
   } catch (err) {
     console.error(err);
     showToast("Camera permission denied.", { error: true });
-    return;
+    return false;
   }
 
   await new Promise((r) => {
@@ -280,8 +484,34 @@ async function startCamera() {
   infCanvas.width = INF_W;
   infCanvas.height = Math.max(1, Math.round((INF_W * vh) / vw));
 
+  cameraInitialized = true;
+  return true;
+}
+
+async function startCamera() {
+  showView("cameraView");
+  tracker.startSession(engine.exerciseId);
+
+  const ok = await initCamera();
+  if (!ok) return;
+
   running = true;
   setBadge("Loading…", "loading");
+  loop();
+}
+
+function pauseCamera() {
+  running = false;
+  // Don't stop the stream — just pause the loop
+}
+
+function resumeCamera() {
+  if (!cameraInitialized) {
+    startCamera();
+    return;
+  }
+  showView("cameraView");
+  running = true;
   loop();
 }
 
@@ -291,6 +521,7 @@ function stopCamera() {
     video.srcObject.getTracks().forEach((t) => t.stop());
     video.srcObject = null;
   }
+  cameraInitialized = false;
 }
 
 // ==================== MAIN LOOP ====================
@@ -323,12 +554,61 @@ function loop() {
         }
 
         setBadge("● Tracking", "tracking");
+
+        // Hold timer logic
+        if (isHoldExercise) {
+          const isGoodPosition = feedback.some((f) => f.severity === "good");
+          if (isGoodPosition) {
+            holdGoodFrames++;
+            if (holdGoodFrames >= 10) {
+              // User has been in good position for ~10 frames (~300ms)
+              if (holdStartTime === 0) {
+                holdStartTime = Date.now();
+                lastHoldSecond = 0;
+              }
+              const elapsed = Math.floor((Date.now() - holdStartTime) / 1000);
+              const mins = Math.floor(elapsed / 60);
+              const secs = elapsed % 60;
+              holdTime.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+
+              // Progress bar
+              const exerciseData = EXERCISES.find((e) => e.id === engine.exerciseId);
+              const target = exerciseData?.holdTargetSeconds || 60;
+              const pct = Math.min(100, (elapsed / target) * 100);
+              holdProgressBar.style.width = pct + "%";
+
+              // Color change as you approach target
+              if (elapsed >= target) {
+                holdTime.style.color = "var(--warn)";
+                holdProgressBar.style.background = "var(--warn)";
+              }
+
+              // Audio cue every 5 seconds
+              if (elapsed > 0 && elapsed % 5 === 0 && elapsed !== lastHoldSecond) {
+                lastHoldSecond = elapsed;
+                const settings = tracker.getSettings();
+                if (settings.audioEnabled) say(`${elapsed} seconds`);
+              }
+            }
+          } else {
+            // Reset if form breaks
+            holdGoodFrames = 0;
+            holdStartTime = 0;
+            holdTime.textContent = "0:00";
+            holdProgressBar.style.width = "0%";
+            holdTime.style.color = "var(--good)";
+            holdProgressBar.style.background = "var(--good)";
+          }
+        }
       } else {
         octx.clearRect(0, 0, w, h);
         setBadge("No pose detected", "loading");
         feedbackText.textContent = "Step into frame";
         feedbackDetail.textContent = "Stand 6-8 feet from camera, full body visible";
         feedbackPanel.className = "feedback-panel";
+        // Reset hold timer when no pose
+        holdGoodFrames = 0;
+        holdStartTime = 0;
       }
     }
   } catch (e) {
@@ -339,13 +619,13 @@ function loop() {
 
 // ==================== BOTTOM CONTROLS ====================
 document.getElementById("btnHistory").addEventListener("click", () => {
-  stopCamera();
+  pauseCamera();
   renderHistory();
   showView("historyView");
 });
 
 document.getElementById("btnSettings").addEventListener("click", () => {
-  stopCamera();
+  pauseCamera();
   renderSettings();
   showView("settingsView");
 });
@@ -396,8 +676,7 @@ function renderHistory() {
 }
 
 document.getElementById("historyBack").addEventListener("click", () => {
-  showView("splashView");
-  initSplash();
+  resumeCamera();
 });
 
 // ==================== SETTINGS ====================
@@ -448,8 +727,7 @@ settingRestTimer.addEventListener("change", saveSettings);
 
 document.getElementById("settingsBack").addEventListener("click", () => {
   saveSettings();
-  showView("splashView");
-  initSplash();
+  resumeCamera();
 });
 
 document.getElementById("btnExportData").addEventListener("click", () => {
@@ -462,6 +740,27 @@ document.getElementById("btnExportData").addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(url);
   showToast("Data exported ✓");
+});
+
+document.getElementById("btnImportData").addEventListener("click", () => {
+  document.getElementById("importFile").click();
+});
+
+document.getElementById("importFile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const ok = tracker.importData(ev.target.result);
+    if (ok) {
+      showToast("Data imported successfully ✓");
+      renderHistory();
+    } else {
+      showToast("Invalid data file", { error: true });
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ""; // reset so same file can be re-imported
 });
 
 document.getElementById("btnClearData").addEventListener("click", () => {
@@ -553,12 +852,7 @@ exercisePicker.addEventListener("mouseup", () => clearTimeout(longPressTimer));
 exercisePicker.addEventListener("mouseleave", () => clearTimeout(longPressTimer));
 
 document.getElementById("tutorialBack").addEventListener("click", () => {
-  showView("cameraView");
-  // Restart camera loop
-  if (video.srcObject) {
-    running = true;
-    loop();
-  }
+  resumeCamera();
 });
 
 // ==================== SUMMARY ====================
