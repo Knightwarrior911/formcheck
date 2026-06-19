@@ -185,12 +185,11 @@ export const EXERCISES = [
       },
     ],
   },
-];
-
   {
     id: "plank",
     name: "Plank",
     type: "hold",
+    category: "core",
     holdTargetSeconds: 60,
     joints: {
       hip:   [11, 23, 25],   // shoulder-hip-knee — should be ~180° (straight line)

@@ -100,9 +100,7 @@ let calAngles = {};
 
 // ==================== VIEW MANAGEMENT ====================
 function showView(viewId) {
-  [splashView, cameraView, historyView, settingsView, summaryView].forEach(
-    (v) => v.classList.add("hidden")
-  );
+  document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(viewId).classList.remove("hidden");
 }
 
@@ -608,65 +606,62 @@ let cameraInitializing = false;
 
 async function initCamera() {
   if (cameraInitialized && video.srcObject) return true;
-  if (cameraInitializing) return cameraInitializing; // reuse in-flight promise
+  if (cameraInitializing) return cameraInitializing;
 
   cameraInitializing = (async () => {
-
-  try {
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-    const make = (delegate, modelUrl) =>
-      PoseLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: modelUrl, delegate },
-        numPoses: 1,
-        runningMode: "VIDEO",
-        minPoseDetectionConfidence: 0.4,
-        minTrackingConfidence: 0.4,
-      });
-
     try {
-      poseLandmarker = await make("GPU", POSE_MODEL_URL);
-    } catch {
+      // Load MediaPipe model
+      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+      const make = (delegate, modelUrl) =>
+        PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: modelUrl, delegate },
+          numPoses: 1,
+          runningMode: "VIDEO",
+          minPoseDetectionConfidence: 0.4,
+          minTrackingConfidence: 0.4,
+        });
+
       try {
-        poseLandmarker = await make("CPU", POSE_MODEL_URL);
+        poseLandmarker = await make("GPU", POSE_MODEL_URL);
       } catch {
         try {
-          poseLandmarker = await make("GPU", POSE_MODEL_LITE_URL);
+          poseLandmarker = await make("CPU", POSE_MODEL_URL);
         } catch {
-          poseLandmarker = await make("CPU", POSE_MODEL_LITE_URL);
+          try {
+            poseLandmarker = await make("GPU", POSE_MODEL_LITE_URL);
+          } catch {
+            poseLandmarker = await make("CPU", POSE_MODEL_LITE_URL);
+          }
         }
       }
+
+      // Start camera
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      // Wait for video metadata
+      await new Promise((r) => {
+        if (video.videoWidth) return r();
+        video.onloadedmetadata = () => r();
+      });
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      infCanvas.width = INF_W;
+      infCanvas.height = Math.max(1, Math.round((INF_W * vh) / vw));
+
+      cameraInitialized = true;
+      return true;
+    } catch (err) {
+      console.error("[FormCheck] initCamera error:", err);
+      return false;
+    } finally {
+      cameraInitializing = false;
     }
-  } catch (err) {
-    console.error(err);
-    showToast("Failed to load pose model. Check internet.", { error: true });
-    return false;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false,
-    });
-    video.srcObject = stream;
-    await video.play();
-  } catch (err) {
-    console.error(err);
-    showToast("Camera permission denied.", { error: true });
-    return false;
-  }
-
-  await new Promise((r) => {
-    if (video.videoWidth) return r();
-    video.onloadedmetadata = () => r();
-  });
-
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  infCanvas.width = INF_W;
-  infCanvas.height = Math.max(1, Math.round((INF_W * vh) / vw));
-
-    cameraInitialized = true;
-    return true;
   })();
 
   return cameraInitializing;
