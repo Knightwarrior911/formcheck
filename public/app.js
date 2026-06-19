@@ -114,6 +114,7 @@ function initSplash() {
     buildProgramPicker();
     buildQuickStart();
     showProgressPreview();
+    showTodaySummary();
   } else {
     // New user
     onboardingStep1.classList.remove("hidden");
@@ -303,6 +304,38 @@ function showProgressPreview() {
     ${progress.suggestion ? `<div style="margin-top:4px;color:var(--text)">💡 ${progress.suggestion.message}</div>` : ""}
   `;
   quickStart.appendChild(div);
+}
+
+function showTodaySummary() {
+  const sessions = tracker.getSessions();
+  const today = new Date().toISOString().slice(0, 10);
+  const todaySessions = sessions.filter((s) => {
+    const d = new Date(s.startTime).toISOString().slice(0, 10);
+    return d === today;
+  });
+
+  if (todaySessions.length === 0) return;
+
+  const totalReps = todaySessions.reduce((sum, s) => sum + (s.reps || 0), 0);
+  const exercises = [...new Set(todaySessions.map((s) => s.exerciseId))];
+  const allExercises = getExerciseList();
+  const exerciseNames = exercises
+    .map((id) => allExercises.find((e) => e.id === id)?.name || id)
+    .join(", ");
+
+  const existing = document.getElementById("todaySummary");
+  if (existing) existing.remove();
+
+  const div = document.createElement("div");
+  div.id = "todaySummary";
+  div.style.cssText = "width:100%;max-width:360px;margin:12px auto 0;padding:12px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:12px;text-align:center;";
+  div.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:var(--good)">Today's Workout</div>
+    <div style="font-size:24px;font-weight:800;color:var(--text);margin:4px 0">${totalReps} reps</div>
+    <div style="font-size:11px;color:var(--muted)">${exerciseNames}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${todaySessions.length} session${todaySessions.length > 1 ? "s" : ""} completed</div>
+  `;
+  returningUser.insertBefore(div, returningUser.querySelector(".divider"));
 }
 
 function buildWorkoutFlow() {
