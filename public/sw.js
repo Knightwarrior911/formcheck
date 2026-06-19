@@ -3,7 +3,7 @@
  * Caches app shell for offline use. MediaPipe WASM/model fetched from CDN (not cached).
  */
 
-const CACHE_NAME = "formcheck-v1";
+const CACHE_NAME = "formcheck-v2";
 const SHELL_FILES = [
   "/",
   "/index.html",
@@ -13,6 +13,11 @@ const SHELL_FILES = [
   "/exercises.js",
   "/audio.js",
   "/filters.js",
+  "/tracker.js",
+  "/calibration.js",
+  "/programs.js",
+  "/custom-programs.js",
+  "/tutorial.js",
   "/manifest.json",
 ];
 

@@ -52,6 +52,7 @@ const overlay = document.getElementById("overlay");
 const octx = overlay.getContext("2d");
 const exercisePicker = document.getElementById("exercisePicker");
 const repCount = document.getElementById("repCount");
+const repDisplay = document.getElementById("repDisplay");
 const statusBadge = document.getElementById("statusBadge");
 const feedbackText = document.getElementById("feedbackText");
 const feedbackDetail = document.getElementById("feedbackDetail");
@@ -207,6 +208,9 @@ function buildExercisePicker() {
         repDisplay.classList.remove("hidden");
         holdTimer.classList.add("hidden");
         repLabel.textContent = "reps";
+        holdStartTime = 0;
+        holdGoodFrames = 0;
+        lastHoldSecond = 0;
       }
       });
       exercisePicker.appendChild(btn);
@@ -316,10 +320,12 @@ function showProgressPreview() {
 
 function showTodaySummary() {
   const sessions = tracker.getSessions();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
   const todaySessions = sessions.filter((s) => {
-    const d = new Date(s.startTime).toISOString().slice(0, 10);
-    return d === today;
+    const d = new Date(s.startTime);
+    const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    return dStr === todayStr;
   });
 
   if (todaySessions.length === 0) return;
@@ -389,6 +395,9 @@ function startProgramExercise() {
     repDisplay.classList.remove("hidden");
     holdTimer.classList.add("hidden");
     repLabel.textContent = "reps";
+    holdStartTime = 0;
+    holdGoodFrames = 0;
+    lastHoldSecond = 0;
   }
 }
 
@@ -574,9 +583,13 @@ engine.onAngles((angles, state) => {
 
 // ==================== CAMERA ====================
 let cameraInitialized = false;
+let cameraInitializing = false;
 
 async function initCamera() {
   if (cameraInitialized && video.srcObject) return true;
+  if (cameraInitializing) return cameraInitializing; // reuse in-flight promise
+
+  cameraInitializing = (async () => {
 
   try {
     const vision = await FilesetResolver.forVisionTasks(WASM_URL);
@@ -631,8 +644,11 @@ async function initCamera() {
   infCanvas.width = INF_W;
   infCanvas.height = Math.max(1, Math.round((INF_W * vh) / vw));
 
-  cameraInitialized = true;
-  return true;
+    cameraInitialized = true;
+    return true;
+  })();
+
+  return cameraInitializing;
 }
 
 async function startCamera() {
@@ -664,11 +680,22 @@ function resumeCamera() {
 
 function stopCamera() {
   running = false;
+  // Clear rest timer if running
+  if (restInterval) {
+    clearInterval(restInterval);
+    restInterval = null;
+  }
+  // Stop camera stream
   if (video.srcObject) {
     video.srcObject.getTracks().forEach((t) => t.stop());
     video.srcObject = null;
   }
+  // Reset state
   cameraInitialized = false;
+  cameraInitializing = false;
+  lastVideoTime = -1;
+  // Clear canvas
+  octx.clearRect(0, 0, overlay.width, overlay.height);
 }
 
 // ==================== MAIN LOOP ====================
@@ -781,17 +808,6 @@ document.getElementById("btnSettings").addEventListener("click", () => {
   showView("settingsView");
 });
 
-document.getElementById("btnEndWorkout").addEventListener("click", () => {
-  const session = tracker.endSession();
-  stopCamera();
-  if (session) {
-    renderSummary(session);
-    showView("summaryView");
-  } else {
-    showView("splashView");
-    initSplash();
-  }
-});
 
 // ==================== HISTORY ====================
 function renderHistory() {
@@ -1034,17 +1050,22 @@ function renderTutorial(exerciseId) {
   showView("tutorialView");
 }
 
-// Long-press on exercise button opens tutorial
+// Long-press on exercise button opens tutorial (mouse + touch)
 let longPressTimer;
-exercisePicker.addEventListener("mousedown", (e) => {
+function startLongPress(e) {
   const btn = e.target.closest(".exercise-btn");
   if (!btn) return;
   longPressTimer = setTimeout(() => {
     renderTutorial(btn.dataset.exercise);
   }, 600);
-});
-exercisePicker.addEventListener("mouseup", () => clearTimeout(longPressTimer));
-exercisePicker.addEventListener("mouseleave", () => clearTimeout(longPressTimer));
+}
+function cancelLongPress() { clearTimeout(longPressTimer); }
+exercisePicker.addEventListener("mousedown", startLongPress);
+exercisePicker.addEventListener("mouseup", cancelLongPress);
+exercisePicker.addEventListener("mouseleave", cancelLongPress);
+exercisePicker.addEventListener("touchstart", startLongPress, { passive: true });
+exercisePicker.addEventListener("touchend", cancelLongPress);
+exercisePicker.addEventListener("touchcancel", cancelLongPress);
 
 document.getElementById("tutorialBack").addEventListener("click", () => {
   resumeCamera();
@@ -1181,8 +1202,6 @@ function openBuilder(program = null) {
   renderBuilder();
   showView("builderView");
 }
-
-document.getElementById("btnCreateProgram")?.addEventListener("click", () => openBuilder());
 
 // Add "Create Custom" button to program picker
 const createProgramBtn = document.createElement("div");
@@ -1350,13 +1369,6 @@ function renderCalendar() {
   });
 }
 
-document.getElementById("btnCalendar")?.addEventListener("click", () => {
-  calMonth = new Date().getMonth();
-  calYear = new Date().getFullYear();
-  renderCalendar();
-  showView("calendarView");
-});
-
 document.getElementById("calPrev").addEventListener("click", () => {
   calMonth--;
   if (calMonth < 0) { calMonth = 11; calYear--; }
@@ -1456,31 +1468,43 @@ function runCalibration(landmarks, now) {
 
   if (currentAngle == null) return;
 
-  if (calPhase === "top") {
-    // Record top position
-    recordCalAngle(engine.exerciseId, angles, "top");
-    document.getElementById("calInstruction").textContent =
-      "Now go to the bottom position (squat down / lower)";
+  // Track min/max angles during calibration
+  if (!calAngles.top) calAngles.top = {};
+  if (!calAngles.bottom) calAngles.bottom = {};
 
-    // Detect when user starts moving down
-    const threshold = exerciseData.states[0]?.detect({ [primaryJoint]: currentAngle - 30 });
-    if (threshold) {
+  // Update top (standing) position — track the max angle seen
+  if (!calAngles.top[primaryJoint] || currentAngle > calAngles.top[primaryJoint]) {
+    calAngles.top[primaryJoint] = currentAngle;
+  }
+  // Update bottom position — track the min angle seen
+  if (!calAngles.bottom[primaryJoint] || currentAngle < calAngles.bottom[primaryJoint]) {
+    calAngles.bottom[primaryJoint] = currentAngle;
+  }
+
+  const range = (calAngles.top[primaryJoint] || 0) - (calAngles.bottom[primaryJoint] || 0);
+
+  if (calPhase === "top") {
+    document.getElementById("calInstruction").textContent =
+      "Hold still at starting position... then go down";
+    // Auto-transition to bottom after 2 seconds or when user moves significantly
+    if (!calAngles.topTime) calAngles.topTime = now;
+    if (now - calAngles.topTime > 2000 || currentAngle < (calAngles.top[primaryJoint] || 180) - 20) {
       calPhase = "bottom";
+      calAngles.bottomTime = null;
     }
   } else if (calPhase === "bottom") {
-    // Record bottom position
-    recordCalAngle(engine.exerciseId, angles, "bottom");
     document.getElementById("calInstruction").textContent =
-      "Good! Now return to starting position";
-
-    // Detect when user returns up
-    const threshold = exerciseData.states[0]?.detect({ [primaryJoint]: currentAngle });
-    if (currentAngle > (calAngles.top?.[primaryJoint] || 140) - 15) {
+      "Hold at bottom position... then return up";
+    // Auto-transition back to top after 2 seconds or when user returns up
+    if (!calAngles.bottomTime) calAngles.bottomTime = now;
+    if (now - calAngles.bottomTime > 2000 || currentAngle > (calAngles.bottom[primaryJoint] || 0) + 20) {
+      // Record this rep
+      recordCalAngle(engine.exerciseId, { [primaryJoint]: calAngles.top[primaryJoint] }, "top");
+      recordCalAngle(engine.exerciseId, { [primaryJoint]: calAngles.bottom[primaryJoint] }, "bottom");
       calRepCount++;
-      document.getElementById("calProgress").textContent = `${calRepCount} / 3 reps`;
+      document.getElementById("calProgress").textContent = calRepCount + " / 3 reps";
 
       if (calRepCount >= 3) {
-        // Done!
         finalizeCalibration(engine.exerciseId);
         isCalibrating = false;
         calPhase = "waiting";
@@ -1489,6 +1513,8 @@ function runCalibration(landmarks, now) {
         updateCalBanner();
       } else {
         calPhase = "top";
+        calAngles.topTime = null;
+        calAngles.bottomTime = null;
         document.getElementById("calInstruction").textContent =
           "Stand in starting position";
       }

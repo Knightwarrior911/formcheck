@@ -27,8 +27,10 @@ export class OneEuro {
     this.dxLP = new LowPass();
   }
   alpha(cutoff, dt) {
-    const tau = 1 / (2 * Math.PI * cutoff);
-    return 1 / (1 + tau / dt);
+    const safeCutoff = Math.max(cutoff, 0.01);
+    const safeDt = Math.max(dt, 0.001);
+    const tau = 1 / (2 * Math.PI * safeCutoff);
+    return 1 / (1 + tau / safeDt);
   }
   filter(x, tMs) {
     if (this.tPrev === null) {

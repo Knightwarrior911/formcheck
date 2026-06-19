@@ -167,18 +167,18 @@ export const EXERCISES = [
       shoulder: [23, 11, 13],
     },
     states: [
-      { name: "down",      detect: (a) => a.elbow > 130 },
-      { name: "pressing",  detect: (a) => a.elbow <= 130 && a.elbow > 50 },
-      { name: "lockout",   detect: (a) => a.elbow <= 50 },
+      { name: "down",      detect: (a) => a.elbow < 60 },
+      { name: "pressing",  detect: (a) => a.elbow >= 60 && a.elbow < 150 },
+      { name: "lockout",   detect: (a) => a.elbow >= 150 },
     ],
     repTransition: { from: "pressing", to: "down" },
     rules: [
       {
         id: "lockout",
         check: (a, state) => {
-          if (state === "lockout" && a.elbow > 60)
+          if (state === "lockout" && a.elbow < 150)
             return { ok: false, msg: "Lock out fully!", severity: "warn" };
-          if (state === "lockout" && a.elbow <= 50)
+          if (state === "lockout" && a.elbow >= 150)
             return { ok: true, msg: "Locked!", severity: "good" };
           return null;
         },

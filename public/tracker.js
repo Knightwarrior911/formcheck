@@ -89,17 +89,22 @@ export class WorkoutTracker {
 
   switchExercise(exerciseId) {
     if (!this._currentSession) return;
-    // Finalize current exercise
+    // Finalize current exercise's form score
     const scores = this._currentSession.formScores;
     const goodCount = scores.filter((s) => s.ok).length;
     const formScore = scores.length > 0 ? Math.round((goodCount / scores.length) * 100) : 0;
+
+    // Save form score to the exercise we're leaving
+    const prevIdx = this._currentSession.currentExerciseIndex;
+    if (this._currentSession.exercises[prevIdx]) {
+      this._currentSession.exercises[prevIdx].formScore = formScore;
+    }
 
     // Add new exercise to the list
     this._currentSession.exercises.push({
       exerciseId,
       reps: 0,
       formScores: [],
-      formScore,
     });
     this._currentSession.currentExerciseIndex = this._currentSession.exercises.length - 1;
     this._currentSession.exerciseId = exerciseId;
@@ -152,10 +157,6 @@ export class WorkoutTracker {
     const session = { ...this._currentSession };
     this._currentSession = null;
     return session;
-  }
-
-  getCurrentSession() {
-    return this._currentSession;
   }
 
   getCurrentSession() {
@@ -335,11 +336,15 @@ export class WorkoutTracker {
   importData(jsonStr) {
     try {
       const parsed = JSON.parse(jsonStr);
-      if (parsed.sessions && Array.isArray(parsed.sessions)) {
-        this.data = parsed;
-        saveData(this.data);
-        return true;
-      }
+      if (!parsed.sessions || !Array.isArray(parsed.sessions)) return false;
+      // Validate each session has required fields
+      const validSessions = parsed.sessions.filter((s) => {
+        return s && typeof s === "object" && s.exerciseId && s.startTime;
+      });
+      if (validSessions.length === 0) return false;
+      this.data = { sessions: validSessions, profile: parsed.profile || {}, settings: parsed.settings || {} };
+      saveData(this.data);
+      return true;
     } catch (e) { console.error("[Tracker] import error:", e); }
     return false;
   }

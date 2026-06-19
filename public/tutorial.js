@@ -204,11 +204,6 @@ export const EXERCISE_TUTORIALS = {
     ],
     muscles: ["Rectus Abdominis", "Hip Flexors", "Obliques"],
   },
-};
-
-export function getTutorial(exerciseId) {
-  return EXERCISE_TUTORIALS[exerciseId] || null;
-}
 
   jumping_jack: {
     name: "Jumping Jack",
@@ -296,6 +291,10 @@ export function getTutorial(exerciseId) {
   },
 
 };
+
+export function getTutorial(exerciseId) {
+  return EXERCISE_TUTORIALS[exerciseId] || null;
+}
 
 export function getAllTutorials() {
   return Object.entries(EXERCISE_TUTORIALS).map(([id, t]) => ({
