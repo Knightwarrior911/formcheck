@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = "formcheck_data";
+const ACTIVE_SESSION_KEY = "formcheck_active_session";
 
 function loadData() {
   try {
@@ -17,6 +18,23 @@ function saveData(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) { console.error("[Tracker] save error:", e); }
+}
+
+export function saveActiveSession(session) {
+  try {
+    if (session) {
+      localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+export function loadActiveSession() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
 
 export class WorkoutTracker {
@@ -143,6 +161,8 @@ export class WorkoutTracker {
         timestamp: Date.now(),
       });
     }
+    // Auto-save active session
+    saveActiveSession(this._currentSession);
   }
 
   endSession() {
@@ -167,6 +187,8 @@ export class WorkoutTracker {
     // Save
     this.data.sessions.push({ ...this._currentSession });
     saveData(this.data);
+    // Clear active session
+    saveActiveSession(null);
 
     const session = { ...this._currentSession };
     this._currentSession = null;

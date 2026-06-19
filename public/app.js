@@ -7,6 +7,7 @@
 import { PoseEngine } from "./pose.js";
 import { WorkoutTracker } from "./tracker.js";
 import { getExerciseList, EXERCISES } from "./exercises.js";
+import { loadActiveSession, saveActiveSession } from "./tracker.js";
 import { getTutorial, getAllTutorials } from "./tutorial.js";
 import { getProgram, getProgramList } from "./programs.js";
 import { getCustomPrograms, saveCustomProgram, deleteCustomProgram, createNewProgram } from "./custom-programs.js";
@@ -126,6 +127,34 @@ function showView(viewId) {
 // ==================== SPLASH / ONBOARDING ====================
 function initSplash() {
   const profile = tracker.getProfile();
+  // Check for recoverable session
+  const activeSession = loadActiveSession();
+  if (activeSession && profile.name) {
+    // Show resume option
+    onboardingStep1.classList.add("hidden");
+    returningUser.classList.remove("hidden");
+    welcomeName.textContent = profile.name;
+    splashStreak.textContent = "You have a workout in progress";
+    buildProgramPicker();
+    buildQuickStart();
+    showProgressPreview();
+    showTodaySummary();
+    // Add resume button
+    const existingResume = document.getElementById("btnResume");
+    if (existingResume) existingResume.remove();
+    const resumeBtn = document.createElement("button");
+    resumeBtn.id = "btnResume";
+    resumeBtn.className = "btn big";
+    resumeBtn.style.marginTop = "12px";
+    resumeBtn.textContent = "Resume Workout";
+    resumeBtn.addEventListener("click", () => {
+      // Restore the session
+      tracker._currentSession = activeSession;
+      startCamera();
+    });
+    quickStart.appendChild(resumeBtn);
+    return;
+  }
   if (profile.name) {
     // Returning user
     onboardingStep1.classList.add("hidden");
