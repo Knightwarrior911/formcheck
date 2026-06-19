@@ -16,6 +16,10 @@
   --accent: #ffffff;
   --danger: #ff3b30;
   --success: #30d158;
+  --warn: #ffd600;
+  --good: #30d158;
+  --bad: #ff3b30;
+  --stroke: #1a1a1a;
   --radius: 8px;
   --radius-lg: 12px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -34,6 +38,10 @@
   --accent: #000000;
   --danger: #ff3b30;
   --success: #34c759;
+  --warn: #ff9500;
+  --good: #34c759;
+  --bad: #ff3b30;
+  --stroke: #e0e0e0;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

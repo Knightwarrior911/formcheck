@@ -53,7 +53,7 @@ export function getEncouragement(state, reps, prevReps) {
 }
 
 function returnToStart(state, reps) {
-  return (state === "standing" || state === "up") && reps > 0;
+  return (state === "standing" || state === "up" || state === "lockout") && reps > 0;
 }
 
 // Form feedback variety

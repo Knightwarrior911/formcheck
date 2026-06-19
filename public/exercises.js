@@ -171,7 +171,7 @@ export const EXERCISES = [
       { name: "pressing",  detect: (a) => a.elbow >= 60 && a.elbow < 150 },
       { name: "lockout",   detect: (a) => a.elbow >= 150 },
     ],
-    repTransition: { from: "pressing", to: "down" },
+    repTransition: { from: "pressing", to: "lockout" },
     rules: [
       {
         id: "lockout",

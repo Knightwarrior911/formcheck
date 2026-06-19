@@ -97,6 +97,7 @@ let holdStartTime = 0;
 let holdGoodFrames = 0; // consecutive frames in good hold position
 let lastHoldSecond = 0; // for audio cues
 let isHoldExercise = false;
+let holdCompleted = false;
 
 // Calibration state
 let isCalibrating = false;
@@ -122,6 +123,11 @@ function getCachedSettings() {
 function showView(viewId) {
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(viewId).classList.remove("hidden");
+}
+
+// Resolve CSS variables for canvas 2D context (which can't use var())
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 // ==================== SPLASH / ONBOARDING ====================
@@ -243,14 +249,14 @@ function selectExercise(exId) {
     holdTimer.classList.remove("hidden");
     weightDisplay.classList.add("hidden");
     holdTarget.textContent = (exData.holdTargetSeconds || 60) + "s";
-    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0; holdCompleted = false;
     repLabel.textContent = "hold";
   } else {
     repDisplay.classList.remove("hidden");
     holdTimer.classList.add("hidden");
     weightDisplay.classList.remove("hidden");
     repLabel.textContent = "reps";
-    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0; holdCompleted = false;
   }
 }
 
@@ -482,14 +488,14 @@ function startProgramExercise() {
     holdTimer.classList.remove("hidden");
     weightDisplay.classList.add("hidden");
     holdTarget.textContent = (exerciseData.holdTargetSeconds || ex.targetReps || 60) + "s";
-    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0; holdCompleted = false;
     repLabel.textContent = "hold";
   } else {
     repDisplay.classList.remove("hidden");
     holdTimer.classList.add("hidden");
     weightDisplay.classList.remove("hidden");
     repLabel.textContent = "reps";
-    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0;
+    holdStartTime = 0; holdGoodFrames = 0; lastHoldSecond = 0; holdCompleted = false;
   }
 }
 
@@ -1014,11 +1020,31 @@ function loop() {
                 const settings = getCachedSettings();
                 if (settings.audioEnabled) say(`${elapsed} seconds`);
               }
+
+              // Hold target reached — completion
+              if (elapsed >= target && !holdCompleted) {
+                holdCompleted = true;
+                feedbackText.textContent = "Hold complete!";
+                feedbackDetail.textContent = `${elapsed}s — Target: ${target}s`;
+                feedbackPanel.className = "feedback-panel good";
+                const settings2 = getCachedSettings();
+                if (settings2.audioEnabled) {
+                  playMilestoneSound();
+                  say(`Hold complete! ${elapsed} seconds`);
+                }
+                tracker.recordRep("good");
+                if (engine.repCb) engine.repCb(1);
+                // In program mode, advance after a brief pause
+                if (currentProgram) {
+                  setTimeout(() => advanceProgram(), 2000);
+                }
+              }
             }
           } else {
             // Reset if form breaks
             holdGoodFrames = 0;
             holdStartTime = 0;
+            holdCompleted = false;
             holdTime.textContent = "0:00";
             holdProgressBar.style.width = "0%";
             holdTime.style.color = "var(--good)";
@@ -1139,7 +1165,7 @@ function renderProgressChart(sessions) {
 
   const days = Object.keys(dayMap).sort();
   if (days.length === 0) {
-    ctx.fillStyle = "var(--muted)";
+    ctx.fillStyle = cssVar("--muted");
     ctx.font = "12px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("No data for this period", w / 2, h / 2);
