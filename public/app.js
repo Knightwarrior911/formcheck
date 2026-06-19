@@ -7,6 +7,7 @@
 import { PoseEngine } from "./pose.js";
 import { WorkoutTracker } from "./tracker.js";
 import { getExerciseList } from "./exercises.js";
+import { getTutorial, getAllTutorials } from "./tutorial.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
 
 // ---- MediaPipe ----
@@ -185,7 +186,7 @@ engine.onRep((count) => {
   // Record rep in tracker
   const currentFeedback = engine._lastFeedback || [];
   const hasError = currentFeedback.some((f) => f.severity === "bad");
-  engine.recordRep(hasError ? "bad" : "good");
+  tracker.recordRep(hasError ? "bad" : "good");
 });
 
 engine.onFeedback((feedback, state) => {
@@ -471,6 +472,31 @@ document.getElementById("btnClearData").addEventListener("click", () => {
   }
 });
 
+// Tutorial list in settings
+const tutorialList = document.getElementById("tutorialList");
+const allTutorials = getAllTutorials();
+tutorialList.innerHTML = allTutorials
+  .map(
+    (t) =>
+      `<div class="session-item" style="cursor:pointer" data-tutorial="${t.id}">
+        <div class="session-info">
+          <div class="session-exercise">${t.name}</div>
+          <div class="session-meta">${t.muscles.join(" · ")}</div>
+        </div>
+        <div class="session-stats"><span style="color:var(--accent)">View →</span></div>
+      </div>`
+  )
+  .join("");
+
+tutorialList.addEventListener("click", (e) => {
+  const item = e.target.closest("[data-tutorial]");
+  if (item) {
+    saveSettings();
+    renderTutorial(item.dataset.tutorial);
+    showView("tutorialView");
+  }
+});
+
 document.getElementById("btnDebugLog").addEventListener("click", (e) => {
   e.preventDefault();
   console.log("[FormCheck] === DEBUG LOG ===");
@@ -480,6 +506,59 @@ document.getElementById("btnDebugLog").addEventListener("click", (e) => {
   console.log("Current engine state:", engine.state);
   console.log("==================");
   showToast("Debug log printed to console (F12)");
+});
+
+// ==================== TUTORIAL ====================
+function renderTutorial(exerciseId) {
+  const tutorial = getTutorial(exerciseId);
+  if (!tutorial) {
+    showToast("No tutorial available for this exercise");
+    return;
+  }
+
+  document.getElementById("tutorialTitle").textContent = tutorial.name + " Guide";
+
+  document.getElementById("tutorialContent").innerHTML = `
+    <div class="tutorial-section">
+      <h3>🎯 Setup</h3>
+      <ul>${tutorial.setup.map((s) => `<li>${s}</li>`).join("")}</ul>
+    </div>
+    <div class="tutorial-section tips">
+      <h3>✓ Form Tips</h3>
+      <ul>${tutorial.tips.map((t) => `<li>${t}</li>`).join("")}</ul>
+    </div>
+    <div class="tutorial-section mistakes">
+      <h3>✗ Common Mistakes</h3>
+      <ul>${tutorial.mistakes.map((m) => `<li>${m}</li>`).join("")}</ul>
+    </div>
+    <div class="tutorial-section">
+      <h3>💪 Muscles Worked</h3>
+      <div class="muscle-tags">${tutorial.muscles.map((m) => `<span class="muscle-tag">${m}</span>`).join("")}</div>
+    </div>
+  `;
+
+  showView("tutorialView");
+}
+
+// Long-press on exercise button opens tutorial
+let longPressTimer;
+exercisePicker.addEventListener("mousedown", (e) => {
+  const btn = e.target.closest(".exercise-btn");
+  if (!btn) return;
+  longPressTimer = setTimeout(() => {
+    renderTutorial(btn.dataset.exercise);
+  }, 600);
+});
+exercisePicker.addEventListener("mouseup", () => clearTimeout(longPressTimer));
+exercisePicker.addEventListener("mouseleave", () => clearTimeout(longPressTimer));
+
+document.getElementById("tutorialBack").addEventListener("click", () => {
+  showView("cameraView");
+  // Restart camera loop
+  if (video.srcObject) {
+    running = true;
+    loop();
+  }
 });
 
 // ==================== SUMMARY ====================

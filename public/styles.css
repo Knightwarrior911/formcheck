@@ -506,6 +506,71 @@ html, body {
 
 .about-text a { color: var(--accent); }
 
+/* ---- Tutorial ---- */
+#tutorialView {
+  background: var(--bg);
+  padding: 16px;
+  padding-bottom: 40px;
+}
+
+.tutorial-content { max-width: 600px; }
+
+.tutorial-section {
+  background: var(--bg2);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.tutorial-section h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.tutorial-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.tutorial-section li {
+  font-size: 13px;
+  color: var(--text);
+  padding: 6px 0;
+  padding-left: 20px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.tutorial-section li::before {
+  content: "•";
+  position: absolute;
+  left: 4px;
+  color: var(--muted);
+}
+
+.tutorial-section.tips li::before { content: "✓"; color: var(--good); }
+.tutorial-section.mistakes li::before { content: "✗"; color: var(--bad); }
+
+.muscle-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.muscle-tag {
+  background: rgba(91, 140, 255, 0.15);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
 /* ---- Summary ---- */
 #summaryView {
   display: grid;
