@@ -10,6 +10,7 @@ import { getExerciseList, EXERCISES } from "./exercises.js";
 import { getTutorial, getAllTutorials } from "./tutorial.js";
 import { getProgram, getProgramList } from "./programs.js";
 import { getCustomPrograms, saveCustomProgram, deleteCustomProgram, createNewProgram } from "./custom-programs.js";
+import { recordCalAngle, isCalibrated, finalizeCalibration, clearCalibration, getCalibrationStatus } from "./calibration.js";
 import { say, sayRep, sayFeedback } from "./audio.js";
 
 // ---- MediaPipe ----
@@ -88,6 +89,12 @@ let holdStartTime = 0;
 let holdGoodFrames = 0; // consecutive frames in good hold position
 let lastHoldSecond = 0; // for audio cues
 let isHoldExercise = false;
+
+// Calibration state
+let isCalibrating = false;
+let calPhase = "waiting"; // waiting | top | bottom | done
+let calRepCount = 0;
+let calAngles = {};
 
 // ==================== VIEW MANAGEMENT ====================
 function showView(viewId) {
@@ -740,13 +747,17 @@ function loop() {
             holdProgressBar.style.background = "var(--good)";
           }
         }
+
+        // Calibration
+        if (isCalibrating) {
+          runCalibration(landmarks, now);
+        }
       } else {
         octx.clearRect(0, 0, w, h);
         setBadge("No pose detected", "loading");
         feedbackText.textContent = "Step into frame";
         feedbackDetail.textContent = "Stand 6-8 feet from camera, full body visible";
         feedbackPanel.className = "feedback-panel";
-        // Reset hold timer when no pose
         holdGoodFrames = 0;
         holdStartTime = 0;
       }
@@ -946,6 +957,50 @@ document.getElementById("btnDebugLog").addEventListener("click", (e) => {
   console.log("==================");
   showToast("Debug log printed to console (F12)");
 });
+
+// Calibration settings
+function renderCalStatus() {
+  const container = document.getElementById("calStatusList");
+  const status = getCalibrationStatus();
+  const allExercises = getExerciseList();
+
+  if (status.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:12px">No exercises calibrated yet</div>';
+    return;
+  }
+
+  container.innerHTML = status
+    .map((s) => {
+      const ex = allExercises.find((e) => e.id === s.exerciseId);
+      const name = ex ? ex.name : s.exerciseId;
+      const icon = s.calibrated ? "✓" : "○";
+      const color = s.calibrated ? "var(--good)" : "var(--muted)";
+      return `<div class="session-item" style="padding:8px 12px">
+        <span style="color:${color}">${icon} ${name}</span>
+        <span style="color:var(--muted);font-size:11px">${s.reps} reps</span>
+      </div>`;
+    })
+    .join("");
+}
+
+// Add renderCalStatus call to saveSettings
+const origSaveSettings = saveSettings;
+// We'll hook into the settings render instead
+
+document.getElementById("btnClearAllCal")?.addEventListener("click", () => {
+  if (confirm("Clear all calibration data?")) {
+    clearCalibration();
+    renderCalStatus();
+    showToast("Calibration cleared");
+  }
+});
+
+// Hook into settings view
+const origRenderSettings = renderSettings;
+renderSettings = function() {
+  origRenderSettings();
+  renderCalStatus();
+};
 
 // ==================== TUTORIAL ====================
 function renderTutorial(exerciseId) {
@@ -1330,6 +1385,121 @@ calBtn.addEventListener("click", () => {
   showView("calendarView");
 });
 document.querySelector("#historyView .page-header")?.appendChild(calBtn);
+
+// ==================================== CALIBRATION ====================
+
+function updateCalBanner() {
+  const banner = document.getElementById("calBanner");
+  const nameSpan = document.getElementById("calExerciseName");
+  if (!banner || !engine.exerciseId) return;
+
+  const calibrated = isCalibrated(engine.exerciseId);
+  const exData = EXERCISES.find((e) => e.id === engine.exerciseId);
+  const exName = exData ? exData.name : engine.exerciseId;
+
+  if (!calibrated && !isCalibrating) {
+    banner.classList.remove("hidden");
+    nameSpan.textContent = exName;
+  } else {
+    banner.classList.add("hidden");
+  }
+}
+
+// Show calibration banner when exercise changes
+const origSetExercise = engine.setExercise.bind(engine);
+engine.setExercise = function(id) {
+  origSetExercise(id);
+  updateCalBanner();
+};
+
+document.getElementById("btnStartCal").addEventListener("click", () => {
+  isCalibrating = true;
+  calPhase = "top";
+  calRepCount = 0;
+  calAngles = {};
+  document.getElementById("calOverlay").classList.remove("hidden");
+  document.getElementById("calTitle").textContent =
+    EXERCISES.find((e) => e.id === engine.exerciseId)?.name || engine.exerciseId;
+  document.getElementById("calInstruction").textContent =
+    "Stand in starting position (arms down / standing)";
+  document.getElementById("calProgress").textContent = "0 / 3 reps";
+});
+
+document.getElementById("btnCancelCal").addEventListener("click", () => {
+  isCalibrating = false;
+  calPhase = "waiting";
+  document.getElementById("calOverlay").classList.add("hidden");
+  clearCalibration(engine.exerciseId);
+});
+
+// Calibration loop — runs inside the main loop
+function runCalibration(landmarks, now) {
+  if (!isCalibrating) return;
+
+  const angles = engine.calcAngles(landmarks, now);
+  const angleDisplay = document.getElementById("calAngles");
+
+  // Show current angles
+  const angleStr = Object.entries(angles)
+    .map(([k, v]) => `${k}: ${v != null ? Math.round(v) + "°" : "N/A"}`)
+    .join(" | ");
+  angleDisplay.textContent = angleStr;
+
+  // State machine for calibration
+  const exerciseData = EXERCISES.find((e) => e.id === engine.exerciseId);
+  if (!exerciseData) return;
+
+  // Detect phase transitions based on angle changes
+  const jointNames = Object.keys(exerciseData.joints);
+  const primaryJoint = jointNames[0];
+  const currentAngle = angles[primaryJoint];
+
+  if (currentAngle == null) return;
+
+  if (calPhase === "top") {
+    // Record top position
+    recordCalAngle(engine.exerciseId, angles, "top");
+    document.getElementById("calInstruction").textContent =
+      "Now go to the bottom position (squat down / lower)";
+
+    // Detect when user starts moving down
+    const threshold = exerciseData.states[0]?.detect({ [primaryJoint]: currentAngle - 30 });
+    if (threshold) {
+      calPhase = "bottom";
+    }
+  } else if (calPhase === "bottom") {
+    // Record bottom position
+    recordCalAngle(engine.exerciseId, angles, "bottom");
+    document.getElementById("calInstruction").textContent =
+      "Good! Now return to starting position";
+
+    // Detect when user returns up
+    const threshold = exerciseData.states[0]?.detect({ [primaryJoint]: currentAngle });
+    if (currentAngle > (calAngles.top?.[primaryJoint] || 140) - 15) {
+      calRepCount++;
+      document.getElementById("calProgress").textContent = `${calRepCount} / 3 reps`;
+
+      if (calRepCount >= 3) {
+        // Done!
+        finalizeCalibration(engine.exerciseId);
+        isCalibrating = false;
+        calPhase = "waiting";
+        document.getElementById("calOverlay").classList.add("hidden");
+        showToast("Calibration complete! ✓");
+        updateCalBanner();
+      } else {
+        calPhase = "top";
+        document.getElementById("calInstruction").textContent =
+          "Stand in starting position";
+      }
+    }
+  }
+}
+
+// Hook into main loop
+const origLoop = loop;
+// We need to patch the loop to include calibration
+// Actually, let's add it to the existing loop function
 
 // ==================== PWA ====================
 if ("serviceWorker" in navigator) {

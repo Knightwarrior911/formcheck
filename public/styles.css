@@ -747,6 +747,72 @@ html, body {
   transition: width 0.3s linear;
 }
 
+/* ---- Calibration ---- */
+.calibration-banner {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 214, 51, 0.15);
+  border: 1px solid rgba(255, 214, 51, 0.4);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--warn);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.calibration-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: grid;
+  place-items: center;
+  z-index: 7;
+}
+
+.cal-card {
+  background: var(--bg2);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  max-width: 340px;
+  width: 90%;
+}
+
+.cal-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cal-instruction {
+  font-size: 14px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  min-height: 20px;
+}
+
+.cal-progress {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--good);
+  margin-bottom: 8px;
+}
+
+.cal-angles {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
 /* ---- Tutorial ---- */
 #tutorialView {
   background: var(--bg);

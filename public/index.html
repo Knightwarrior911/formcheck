@@ -94,6 +94,23 @@
         </div>
       </div>
 
+      <!-- Calibration banner -->
+      <div class="calibration-banner hidden" id="calBanner">
+        <span>📐 First time doing <span id="calExerciseName">this exercise</span>?</span>
+        <button class="btn small" id="btnStartCal">Calibrate (3 reps)</button>
+      </div>
+
+      <!-- Calibration overlay -->
+      <div class="calibration-overlay hidden" id="calOverlay">
+        <div class="cal-card">
+          <div class="cal-title">Calibrating: <span id="calTitle"></span></div>
+          <div class="cal-instruction" id="calInstruction">Stand in starting position</div>
+          <div class="cal-progress" id="calProgress">0 / 3 reps</div>
+          <div class="cal-angles" id="calAngles"></div>
+          <button class="btn ghost" id="btnCancelCal">Cancel</button>
+        </div>
+      </div>
+
       <!-- Status badge -->
       <div class="status-badge" id="statusBadge">Loading…</div>
 
@@ -218,8 +235,15 @@
     </div>
 
     <div class="settings-group">
+      <h3>Calibration</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Calibrate rep counting for your body type. Do 3 reps per exercise for best accuracy.</p>
+      <div id="calStatusList"></div>
+      <button class="btn ghost" id="btnClearAllCal" style="margin-top:8px">Clear All Calibration</button>
+    </div>
+
+    <div class="settings-group">
       <h3>About</h3>
-      <p class="about-text">FormCheck v0.1.0 · 100% local · No cloud · No tracking · <a href="#" id="btnDebugLog">View debug log</a></p>
+      <p class="about-text">FormCheck v0.1.7 · 100% local · No cloud · No tracking · <a href="#" id="btnDebugLog">View debug log</a></p>
     </div>
   </div>
 
