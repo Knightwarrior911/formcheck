@@ -112,6 +112,8 @@ function initSplash() {
       splashStreak.textContent = "Start a workout today to begin your streak!";
     }
     buildProgramPicker();
+    buildQuickStart();
+    showProgressPreview();
   } else {
     // New user
     onboardingStep1.classList.remove("hidden");
@@ -219,6 +221,69 @@ function buildProgramPicker() {
   }
 }
 
+function buildQuickStart() {
+  const container = document.getElementById("recentExercises");
+  const recent = tracker.getRecentExercises(5);
+  const allExercises = getExerciseList();
+
+  if (recent.length === 0) {
+    // No history — show popular exercises
+    container.innerHTML = allExercises
+      .slice(0, 4)
+      .map(
+        (ex) =>
+          `<button class="recent-exercise-btn" data-exercise="${ex.id}">${ex.name}</button>`
+      )
+      .join("");
+  } else {
+    container.innerHTML = recent
+      .map((exId) => {
+        const ex = allExercises.find((e) => e.id === exId);
+        return `<button class="recent-exercise-btn" data-exercise="${exId}">${ex ? ex.name : exId}</button>`;
+      })
+      .join("");
+  }
+
+  // Click to select
+  container.querySelectorAll(".recent-exercise-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      container
+        .querySelectorAll(".recent-exercise-btn")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentProgram = null; // No program — single exercise
+      engine.setExercise(btn.dataset.exercise);
+      repCount.textContent = "0";
+    });
+  });
+}
+
+function showProgressPreview() {
+  const lastExId = tracker.getLastExercise();
+  const progress = tracker.getProgressForExercise(lastExId);
+  if (!progress || progress.sessions < 2) return;
+
+  const allExercises = getExerciseList();
+  const ex = allExercises.find((e) => e.id === lastExId);
+  const exName = ex ? ex.name : lastExId;
+
+  // Insert progress card after quick start
+  const quickStart = document.getElementById("quickStart");
+  const existing = document.getElementById("progressPreview");
+  if (existing) existing.remove();
+
+  const trendIcon = progress.trend === "up" ? "📈" : progress.trend === "down" ? "📉" : "➡️";
+  const div = document.createElement("div");
+  div.id = "progressPreview";
+  div.style.cssText = "margin-top:12px;padding:10px;background:rgba(91,140,255,0.08);border:1px solid rgba(91,140,255,0.2);border-radius:10px;font-size:12px;text-align:left;";
+  div.innerHTML = `
+    <div style="font-weight:600;color:var(--accent);margin-bottom:4px">${trendIcon} ${exName} Progress</div>
+    <div style="color:var(--muted)">Last: ${progress.lastReps} reps · Best: ${progress.bestReps} · Avg form: ${progress.avgForm}%</div>
+    ${progress.suggestion ? `<div style="margin-top:4px;color:var(--text)">💡 ${progress.suggestion.message}</div>` : ""}
+  `;
+  quickStart.appendChild(div);
+}
+
 function buildWorkoutFlow() {
   const flow = document.getElementById("workoutFlow");
   if (!currentProgram) {
@@ -319,6 +384,15 @@ function endWorkoutFlow() {
     initSplash();
   }
 }
+
+// Quick start button
+document.getElementById("btnQuickStart").addEventListener("click", () => {
+  currentProgram = null;
+  const lastEx = tracker.getLastExercise();
+  engine.setExercise(lastEx);
+  repCount.textContent = "0";
+  startCamera();
+});
 
 // Override startBtn to use program flow
 startBtn.addEventListener("click", () => {
@@ -668,7 +742,7 @@ function renderHistory() {
           </div>
           <div class="session-stats">
             <div class="session-reps">${s.reps} reps</div>
-            <div class="session-form ${formClass}">${s.formScore || —}% form</div>
+            <div class="session-form ${formClass}">${s.formScore || 0}% form</div>
           </div>
         </div>
       `;
@@ -886,6 +960,20 @@ function renderSummary(session) {
       <div class="summary-stat-label">Duration</div>
     </div>
   `;
+
+  // Add progressive overload suggestion
+  const progress = tracker.getProgressForExercise(session.exerciseId);
+  if (progress && progress.suggestion) {
+    const suggestionHtml = `
+      <div style="margin-top:16px;padding:12px;background:rgba(91,140,255,0.1);border:1px solid rgba(91,140,255,0.3);border-radius:10px;grid-column:span 2">
+        <div style="font-size:13px;font-weight:600;color:var(--accent)">📈 ${progress.suggestion.message}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          ${progress.sessions} sessions tracked · Best: ${progress.bestReps} reps · Avg form: ${progress.avgForm}%
+        </div>
+      </div>
+    `;
+    document.getElementById("summaryStats").insertAdjacentHTML("beforeend", suggestionHtml);
+  }
 }
 
 document.getElementById("summaryHome").addEventListener("click", () => {

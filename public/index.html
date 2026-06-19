@@ -38,12 +38,22 @@
         <button class="btn big" id="onboardingNext">Get Started →</button>
       </div>
 
-      <!-- Returning user: program picker -->
+      <!-- Returning user: quick start + programs -->
       <div class="returning hidden" id="returningUser">
         <p class="welcome-back">Welcome back, <span id="welcomeName">Athlete</span>! 🔥</p>
         <p class="streak-display" id="splashStreak"></p>
+
+        <!-- Quick start -->
+        <div class="quick-start" id="quickStart">
+          <div class="quick-start-title">Quick Start</div>
+          <div class="recent-exercises" id="recentExercises"></div>
+          <button class="btn big" id="btnQuickStart" style="margin-top:12px">Start Last Exercise</button>
+        </div>
+
+        <div class="divider"><span>or choose a program</span></div>
+
         <div class="program-picker" id="programPicker"></div>
-        <button class="btn big" id="startBtn" style="margin-top:16px">Start Workout</button>
+        <button class="btn big" id="startBtn" style="margin-top:12px">Start Program</button>
       </div>
 
       <small id="splashNote">Camera permission required · 100% local processing</small>

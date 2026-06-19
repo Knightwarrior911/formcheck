@@ -51,6 +51,26 @@ export class WorkoutTracker {
     saveData(this.data);
   }
 
+  // ---- Recent exercises ----
+  getRecentExercises(limit = 5) {
+    const sessions = this.data.sessions || [];
+    const recent = [];
+    const seen = new Set();
+    for (let i = sessions.length - 1; i >= 0 && recent.length < limit; i--) {
+      const exId = sessions[i].exerciseId;
+      if (!seen.has(exId)) {
+        seen.add(exId);
+        recent.push(exId);
+      }
+    }
+    return recent;
+  }
+
+  getLastExercise() {
+    const recent = this.getRecentExercises(1);
+    return recent[0] || "squat";
+  }
+
   // ---- Session management ----
   startSession(exerciseId) {
     this._currentSession = {
@@ -59,7 +79,7 @@ export class WorkoutTracker {
       startTime: Date.now(),
       endTime: null,
       reps: 0,
-      formScores: [], // array of { ok: bool, severity: string }
+      formScores: [],
       duration: 0,
     };
     return this._currentSession;
@@ -197,6 +217,65 @@ export class WorkoutTracker {
       situp: 0.3,
     };
     return Math.round((calPerRep[exerciseId] || 0.3) * reps);
+  }
+
+  // ---- Progressive overload ----
+  getProgressForExercise(exerciseId) {
+    const sessions = (this.data.sessions || [])
+      .filter((s) => s.exerciseId === exerciseId)
+      .slice(-10); // last 10 sessions
+
+    if (sessions.length === 0) return null;
+
+    const reps = sessions.map((s) => s.reps || 0);
+    const formScores = sessions.map((s) => s.formScore || 0);
+    const lastReps = reps[reps.length - 1];
+    const avgReps = Math.round(reps.reduce((a, b) => a + b, 0) / reps.length);
+    const avgForm = Math.round(formScores.reduce((a, b) => a + b, 0) / formScores.length);
+    const bestReps = Math.max(...reps);
+
+    // Trend: are reps increasing?
+    let trend = "flat";
+    if (reps.length >= 3) {
+      const recent = reps.slice(-3);
+      if (recent[2] > recent[0]) trend = "up";
+      else if (recent[2] < recent[0]) trend = "down";
+    }
+
+    // Suggestion
+    let suggestion = null;
+    if (avgForm >= 80 && lastReps >= avgReps) {
+      suggestion = {
+        type: "increase_reps",
+        message: `Great form! Try ${lastReps + 2} reps next time.`,
+        current: lastReps,
+        target: lastReps + 2,
+      };
+    } else if (avgForm < 60) {
+      suggestion = {
+        type: "focus_form",
+        message: "Focus on form quality over reps. Try fewer reps with better technique.",
+        current: lastReps,
+        target: Math.max(5, lastReps - 3),
+      };
+    } else if (lastReps < avgReps) {
+      suggestion = {
+        type: "maintain",
+        message: `You're doing well. Aim for ${avgReps} reps to maintain.`,
+        current: lastReps,
+        target: avgReps,
+      };
+    }
+
+    return {
+      sessions: sessions.length,
+      lastReps,
+      avgReps,
+      bestReps,
+      avgForm,
+      trend,
+      suggestion,
+    };
   }
 
   // ---- Clear all data ----
